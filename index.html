@@ -19,10 +19,15 @@
       const vrButtonScript = document.createElement('script');
       vrButtonScript.src = 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/webxr/VRButton.js';
       document.head.appendChild(vrButtonScript);
+
+       // Load XR Controller Model Factory - THIS IS THE MISSING PIECE
+      const xrControllerScript = document.createElement('script');
+      xrControllerScript.src = 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/webxr/XRControllerModelFactory.js';
+      document.head.appendChild(xrControllerScript);
       
       // Initialize once everything is loaded
       let componentsLoaded = 0;
-      const totalComponents = 2;
+      const totalComponents = 3;
       
       function checkInitialize() {
         componentsLoaded++;
@@ -33,6 +38,7 @@
       
       orbitScript.onload = checkInitialize;
       vrButtonScript.onload = checkInitialize;
+      xrControllerScript.onload = checkInitialize;
       
       orbitScript.onerror = (e) => {
         console.error("Failed to load OrbitControls", e);
@@ -45,6 +51,13 @@
         createFallbackVRComponents();
         checkInitialize();
       };
+
+      xrControllerScript.onerror = (e) => {
+        console.error("Failed to load XR Controller Model Factory", e);
+        createFallbackXRControllers();
+        checkInitialize();
+      };
+
     });
   </script>
   <style>
@@ -771,15 +784,20 @@
       scene.add(controller2);
       
       // Create controller models (visible in VR)
-      const controllerModelFactory = new THREE.XRControllerModelFactory();
-      
-      const controllerGrip1 = renderer.xr.getControllerGrip(0);
-      controllerGrip1.add(controllerModelFactory.createControllerModel(controllerGrip1));
-      scene.add(controllerGrip1);
-      
-      const controllerGrip2 = renderer.xr.getControllerGrip(1);
-      controllerGrip2.add(controllerModelFactory.createControllerModel(controllerGrip2));
-      scene.add(controllerGrip2);
+      try {
+        const controllerModelFactory = new THREE.XRControllerModelFactory();
+        
+        const controllerGrip1 = renderer.xr.getControllerGrip(0);
+        controllerGrip1.add(controllerModelFactory.createControllerModel(controllerGrip1));
+        scene.add(controllerGrip1);
+        
+        const controllerGrip2 = renderer.xr.getControllerGrip(1);
+        controllerGrip2.add(controllerModelFactory.createControllerModel(controllerGrip2));
+        scene.add(controllerGrip2);
+      } catch (err) {
+        error("Error creating controller models", err);
+        // Continue without controller models
+      }
       
       // Create navigation triangles for VR
       createNavigationTriangles();
@@ -826,9 +844,9 @@
       // Create triangle geometry for forward navigation
       const forwardGeometry = new THREE.BufferGeometry();
       const forwardVertices = new Float32Array([
-         0.0,  0.1,  0.0,   // top
+        0.0,  0.1,  0.0,   // top
         -0.1, -0.1,  0.0,   // bottom left
-         0.1, -0.1,  0.0    // bottom right
+        0.1, -0.1,  0.0    // bottom right
       ]);
       forwardGeometry.setAttribute('position', new THREE.BufferAttribute(forwardVertices, 3));
       forwardGeometry.computeVertexNormals();
@@ -836,63 +854,89 @@
       // Create triangle geometry for backward navigation
       const backwardGeometry = new THREE.BufferGeometry();
       const backwardVertices = new Float32Array([
-         0.0, -0.1,  0.0,   // bottom
+        0.0, -0.1,  0.0,   // bottom
         -0.1,  0.1,  0.0,   // top left
-         0.1,  0.1,  0.0    // top right
+        0.1,  0.1,  0.0    // top right
       ]);
       backwardGeometry.setAttribute('position', new THREE.BufferAttribute(backwardVertices, 3));
       backwardGeometry.computeVertexNormals();
       
-      // Create materials for triangles
+      // Create materials for triangles - MAKE THEM MORE VISIBLE
       const forwardMaterial = new THREE.MeshBasicMaterial({ 
-        color: 0x4285f4,
+        color: 0x00ff00, // Bright green is more visible
         side: THREE.DoubleSide,
         transparent: true,
-        opacity: 0.8
+        opacity: 1.0, // Full opacity
+        emissive: 0x00ff00, // Add emissive for better visibility
+        emissiveIntensity: 0.5
       });
       
       const backwardMaterial = new THREE.MeshBasicMaterial({ 
-        color: 0xf44242,
+        color: 0xff0000, // Bright red is more visible
         side: THREE.DoubleSide, 
         transparent: true,
-        opacity: 0.8
+        opacity: 1.0, // Full opacity
+        emissive: 0xff0000, // Add emissive for better visibility
+        emissiveIntensity: 0.5
       });
       
       // Create triangle meshes
       forwardTriangle = new THREE.Mesh(forwardGeometry, forwardMaterial);
       forwardTriangle.name = 'forwardTriangle';
-      forwardTriangle.position.set(0, 0, -2); // Position in front of user
-      forwardTriangle.position.y = -0.5;      // Position below eye level
-      forwardTriangle.scale.set(0.2, 0.2, 0.2); // Scale to appropriate size
+      forwardTriangle.position.set(0, 0, -1); // Position closer to user (was -2)
+      forwardTriangle.position.y = -0.3;      // Position higher (was -0.5)
+      forwardTriangle.position.x = 0.3;       // Position more to the right
+      forwardTriangle.scale.set(0.3, 0.3, 0.3); // Scale larger (was 0.2)
       forwardTriangle.userData.isNavigationTriangle = true;
       forwardTriangle.userData.direction = 'forward';
       
       backwardTriangle = new THREE.Mesh(backwardGeometry, backwardMaterial);
       backwardTriangle.name = 'backwardTriangle';
-      backwardTriangle.position.set(0, 0, -2); // Position in front of user
-      backwardTriangle.position.y = -0.5;      // Position below eye level
+      backwardTriangle.position.set(0, 0, -1); // Position closer to user (was -2)
+      backwardTriangle.position.y = -0.3;      // Position higher (was -0.5)
       backwardTriangle.position.x = -0.3;      // Position to the left
-      backwardTriangle.scale.set(0.2, 0.2, 0.2); // Scale to appropriate size
+      backwardTriangle.scale.set(0.3, 0.3, 0.3); // Scale larger (was 0.2)
       backwardTriangle.userData.isNavigationTriangle = true;
       backwardTriangle.userData.direction = 'backward';
       
-      // Don't add to scene yet - will add when entering VR
+      // Add directly to scene but hide initially
       forwardTriangle.visible = false;
       backwardTriangle.visible = false;
       
       scene.add(forwardTriangle);
       scene.add(backwardTriangle);
+      
+      // Debug log to confirm triangles were created
+      log('Navigation triangles created: forward=' + forwardTriangle.uuid + ', backward=' + backwardTriangle.uuid);
     }
 
     // Show/hide VR navigation triangles
     function showVRNavigationTriangles() {
+      log('Attempting to show VR navigation triangles');
+      
       if (forwardTriangle && backwardTriangle) {
         // Only show forward triangle if not at the last panorama
         const images = USE_PLACEHOLDERS ? PLACEHOLDER_IMAGES : PANORAMA_IMAGES;
         forwardTriangle.visible = currentPhotoIndex < images.length - 1;
-        
-        // Only show backward triangle if not at the first panorama
         backwardTriangle.visible = currentPhotoIndex > 0;
+        
+        log('Triangle visibility updated: forward=' + forwardTriangle.visible + ', backward=' + backwardTriangle.visible);
+        
+        // Add debug spheres to verify positioning
+        const sphereGeometry = new THREE.SphereGeometry(0.05, 16, 16);
+        const sphereMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+        
+        const forwardSphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+        forwardSphere.position.copy(forwardTriangle.position);
+        scene.add(forwardSphere);
+        
+        const backwardSphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+        backwardSphere.position.copy(backwardTriangle.position);
+        scene.add(backwardSphere);
+        
+        log('Debug spheres added at triangle positions');
+      } else {
+        error('Cannot show triangles - they are not initialized');
       }
     }
 
@@ -964,12 +1008,12 @@
           cameraDirection.applyQuaternion(camera.quaternion);
           
           // Position triangles in front of user, but at a fixed distance
-          const triangleDistance = -2; // 2 meters in front
+          const triangleDistance = -1; // 2 meters in front
           
           // Forward triangle position
           forwardTriangle.position.copy(camera.position);
           forwardTriangle.position.addScaledVector(cameraDirection, triangleDistance);
-          forwardTriangle.position.y -= 0.5; // Below eye level
+          forwardTriangle.position.y -= 0.3; // Below eye level
           forwardTriangle.position.x += 0.3; // To the right
           
           // Make triangle face the user
@@ -978,7 +1022,7 @@
           // Backward triangle position
           backwardTriangle.position.copy(camera.position);
           backwardTriangle.position.addScaledVector(cameraDirection, triangleDistance);
-          backwardTriangle.position.y -= 0.5; // Below eye level
+          backwardTriangle.position.y -= 0.3; // Below eye level
           backwardTriangle.position.x -= 0.3; // To the left
           
           // Make triangle face the user
@@ -1324,6 +1368,21 @@
           };
         };
       }
+    }
+
+    function createFallbackXRControllers() {
+      log('Creating fallback XR Controller implementation');
+      
+      THREE.XRControllerModelFactory = function() {
+        return {
+          createControllerModel: function() {
+            // Create a simple controller model (blue cylinder)
+            const geometry = new THREE.CylinderGeometry(0.01, 0.02, 0.08, 16);
+            const material = new THREE.MeshBasicMaterial({ color: 0x0055ff });
+            return new THREE.Mesh(geometry, material);
+          }
+        };
+      };
     }
   </script>
 </body>
