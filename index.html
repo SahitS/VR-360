@@ -421,8 +421,6 @@
     // ===== GLOBAL VARIABLES =====
     let currentPhotoIndex = 0;
     let isLoading = true;
-    let lastSelectedTriangle = null;
-    let lastSelectionTime = 0;
     
     // Three.js variables
     let camera, scene, renderer;
@@ -843,42 +841,61 @@
     function createNavigationTriangles() {
       log('Creating navigation triangles for VR');
       
-      // Create cone geometry for forward navigation (pointing right)
-      const forwardGeometry = new THREE.ConeGeometry(0.15, 0.3, 3);
-      forwardGeometry.rotateX(Math.PI / 2); // Rotate to point forward
+      // Create triangle geometry for forward navigation
+      const forwardGeometry = new THREE.BufferGeometry();
+      const forwardVertices = new Float32Array([
+        0.0,  0.1,  0.0,   // top
+        -0.1, -0.1,  0.0,   // bottom left
+        0.1, -0.1,  0.0    // bottom right
+      ]);
+      forwardGeometry.setAttribute('position', new THREE.BufferAttribute(forwardVertices, 3));
+      forwardGeometry.computeVertexNormals();
       
-      // Create cone geometry for backward navigation (pointing left)
-      const backwardGeometry = new THREE.ConeGeometry(0.15, 0.3, 3);
-      backwardGeometry.rotateX(-Math.PI / 2); // Rotate to point backward
-      backwardGeometry.rotateY(Math.PI); // Flip to point backward
+      // Create triangle geometry for backward navigation
+      const backwardGeometry = new THREE.BufferGeometry();
+      const backwardVertices = new Float32Array([
+        0.0, -0.1,  0.0,   // bottom
+        -0.1,  0.1,  0.0,   // top left
+        0.1,  0.1,  0.0    // top right
+      ]);
+      backwardGeometry.setAttribute('position', new THREE.BufferAttribute(backwardVertices, 3));
+      backwardGeometry.computeVertexNormals();
       
-      // Create materials with emissive properties for better visibility in VR
+      // Create materials for triangles - MAKE THEM MORE VISIBLE
       const forwardMaterial = new THREE.MeshBasicMaterial({ 
-        color: 0x00ff00, // Bright green
+        color: 0x00ff00, // Bright green is more visible
         side: THREE.DoubleSide,
         transparent: true,
-        opacity: 0.9,
-        emissive: 0x00ff00,
-        emissiveIntensity: 0.7
+        opacity: 1.0, // Full opacity
+        emissive: 0x00ff00, // Add emissive for better visibility
+        emissiveIntensity: 0.5
       });
       
       const backwardMaterial = new THREE.MeshBasicMaterial({ 
-        color: 0xff0000, // Bright red
+        color: 0xff0000, // Bright red is more visible
         side: THREE.DoubleSide, 
         transparent: true,
-        opacity: 0.9,
-        emissive: 0xff0000,
-        emissiveIntensity: 0.7
+        opacity: 1.0, // Full opacity
+        emissive: 0xff0000, // Add emissive for better visibility
+        emissiveIntensity: 0.5
       });
       
-      // Create cone meshes
+      // Create triangle meshes
       forwardTriangle = new THREE.Mesh(forwardGeometry, forwardMaterial);
       forwardTriangle.name = 'forwardTriangle';
+      forwardTriangle.position.set(0, 0, -2); // Position closer to user (was -2)
+      forwardTriangle.position.y = 0;      // Position higher (was -0.5)
+      forwardTriangle.position.x = 0.5;       // Position more to the right
+      forwardTriangle.scale.set(0.8, 0.8, 0.8); // Scale larger (was 0.2)
       forwardTriangle.userData.isNavigationTriangle = true;
       forwardTriangle.userData.direction = 'forward';
       
       backwardTriangle = new THREE.Mesh(backwardGeometry, backwardMaterial);
       backwardTriangle.name = 'backwardTriangle';
+      backwardTriangle.position.set(0, 0, -2); // Position closer to user (was -2)
+      backwardTriangle.position.y = 0;      // Position higher (was -0.5)
+      backwardTriangle.position.x = -0.5;      // Position to the left
+      backwardTriangle.scale.set(0.8, 0.8, 0.8); // Scale larger (was 0.2)
       backwardTriangle.userData.isNavigationTriangle = true;
       backwardTriangle.userData.direction = 'backward';
       
@@ -889,23 +906,8 @@
       scene.add(forwardTriangle);
       scene.add(backwardTriangle);
       
-      // Add debug spheres to verify positioning if needed in debug mode
-      // if (DEBUG) {
-      //   const sphereGeometry = new THREE.SphereGeometry(0.02, 8, 8);
-      //   const sphereMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00 });
-        
-      //   const forwardSphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
-      //   forwardSphere.position.set(0, 0, 0);
-      //   forwardTriangle.add(forwardSphere);
-        
-      //   const backwardSphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
-      //   backwardSphere.position.set(0, 0, 0);
-      //   backwardTriangle.add(backwardSphere);
-        
-      //   log('Debug spheres added to navigation cones');
-      // }
-      
-      log('Navigation cones created: forward=' + forwardTriangle.uuid + ', backward=' + backwardTriangle.uuid);
+      // Debug log to confirm triangles were created
+      log('Navigation triangles created: forward=' + forwardTriangle.uuid + ', backward=' + backwardTriangle.uuid);
     }
 
     // Show/hide VR navigation triangles
@@ -951,9 +953,6 @@
       
       // Check for intersections with navigation triangles
       handleControllerIntersection(controller);
-      if (controller.gamepad && controller.gamepad.hapticActuators && controller.gamepad.hapticActuators.length > 0) {
-        controller.gamepad.hapticActuators[0].pulse(0.8, 100); 
-      }
     }
 
     function onSelectEnd(event) {
@@ -975,45 +974,16 @@
       const intersects = raycaster.intersectObjects([forwardTriangle, backwardTriangle]);
       
       if (intersects.length > 0) {
-        const currentTime = Date.now();
         intersected = intersects[0].object;
         
-        // Prevent rapid repeated navigation (require 1.5 second between navigations)
-        const NAVIGATION_COOLDOWN = 1500; // ms
-        
         if (intersected.userData.isNavigationTriangle) {
-          // Only navigate if this is a new triangle or enough time has passed
-          if (intersected !== lastSelectedTriangle || 
-              (currentTime - lastSelectionTime) > NAVIGATION_COOLDOWN) {
-            
-            // Highlight the triangle to provide visual feedback
-            const originalColor = intersected.material.color.clone();
-            intersected.material.color.set(0xFFFFFF); // Change to white when selected
-            
-            // Navigate based on direction
-            if (intersected.userData.direction === 'forward') {
-              navigateNext();
-            } else if (intersected.userData.direction === 'backward') {
-              navigatePrev();
-            }
-            
-            // Update selection tracking
-            lastSelectedTriangle = intersected;
-            lastSelectionTime = currentTime;
-            
-            // Reset color after a short delay
-            setTimeout(() => {
-              if (intersected.userData.direction === 'forward') {
-                intersected.material.color.set(0x00ff00); // Reset to green
-              } else {
-                intersected.material.color.set(0xff0000); // Reset to red
-              }
-            }, 200);
+          // Navigate based on direction
+          if (intersected.userData.direction === 'forward') {
+            navigateNext();
+          } else if (intersected.userData.direction === 'backward') {
+            navigatePrev();
           }
         }
-      } else {
-        // No intersection, reset the selected object
-        intersected = null;
       }
     }
 
@@ -1033,32 +1003,31 @@
       // In VR, update triangle positions to follow camera direction
       if (isVRMode) {
         if (forwardTriangle && backwardTriangle) {
-          // Get camera direction and position from the camera/headset
+          // Get camera direction
           const cameraDirection = new THREE.Vector3(0, 0, -1);
           cameraDirection.applyQuaternion(camera.quaternion);
           
-          // Position triangles in front of user at fixed distance
-          const triangleDistance = -2; // 2 meters in front
+          // Position triangles in front of user, but at a fixed distance
+          const triangleDistance = -3; // 3 meters in front (was -1)
           
-          // Calculate position in front of camera based on camera direction
-          const triangleBasePosition = new THREE.Vector3();
-          triangleBasePosition.copy(camera.position);
-          triangleBasePosition.addScaledVector(cameraDirection, triangleDistance);
+          // Forward triangle position
+          forwardTriangle.position.copy(camera.position);
+          forwardTriangle.position.addScaledVector(cameraDirection, triangleDistance);
+          forwardTriangle.position.y = camera.position.y; // At eye level (was -= 0.3)
+          forwardTriangle.position.x += 0.7; // More to the right (was 0.3)
           
-          // Forward triangle - position to the right
-          forwardTriangle.position.copy(triangleBasePosition);
-          // Use camera's right vector to offset to the right side
-          const rightVector = new THREE.Vector3(1, 0, 0);
-          rightVector.applyQuaternion(camera.quaternion);
-          forwardTriangle.position.addScaledVector(rightVector, 0.5); // Offset right
-          
-          // Backward triangle - position to the left
-          backwardTriangle.position.copy(triangleBasePosition);
-          backwardTriangle.position.addScaledVector(rightVector, -0.5); // Offset left
-          
-          // Make triangles face the user by copying camera quaternion
+          // Make triangle face the user
           forwardTriangle.quaternion.copy(camera.quaternion);
-          backwardTriangle.quaternion.copy(camera.quaternion);
+          
+          // Backward triangle position
+          backwardTriangle.position.copy(camera.position);
+          backwardTriangle.position.addScaledVector(cameraDirection, triangleDistance);
+          backwardTriangle.position.y = camera.position.y; // At eye level (was -= 0.3)
+          backwardTriangle.position.x -= 0.7; // More to the left (was -0.3)
+          
+          // Check for controller intersections
+          if (controller1) handleControllerIntersection(controller1);
+          if (controller2) handleControllerIntersection(controller2);
         }
       }
       
