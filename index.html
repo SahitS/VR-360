@@ -1,0 +1,1330 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>360 Photo Sequence Viewer - Benin (Three.js + WebXR)</title>
+  <!-- Load Three.js and its OrbitControls properly -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <!-- Additional Three.js components needed for VR -->
+  <script>
+    // Load required Three.js modules after THREE is defined
+    document.addEventListener('DOMContentLoaded', () => {
+      // Load OrbitControls
+      const orbitScript = document.createElement('script');
+      orbitScript.src = 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js';
+      document.head.appendChild(orbitScript);
+      
+      // Load VR related modules
+      const vrButtonScript = document.createElement('script');
+      vrButtonScript.src = 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/webxr/VRButton.js';
+      document.head.appendChild(vrButtonScript);
+      
+      // Initialize once everything is loaded
+      let componentsLoaded = 0;
+      const totalComponents = 2;
+      
+      function checkInitialize() {
+        componentsLoaded++;
+        if (componentsLoaded >= totalComponents) {
+          initializeApplication();
+        }
+      }
+      
+      orbitScript.onload = checkInitialize;
+      vrButtonScript.onload = checkInitialize;
+      
+      orbitScript.onerror = (e) => {
+        console.error("Failed to load OrbitControls", e);
+        createFallbackOrbitControls();
+        checkInitialize();
+      };
+      
+      vrButtonScript.onerror = (e) => {
+        console.error("Failed to load VR components", e);
+        createFallbackVRComponents();
+        checkInitialize();
+      };
+    });
+  </script>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      font-family: Arial, sans-serif;
+      background-color: #000;
+    }
+    
+    #container {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+    }
+    
+    .loading-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.9);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+      color: white;
+      font-family: Arial, sans-serif;
+    }
+    
+    .loading-text {
+      font-size: 24px;
+      margin-top: 20px;
+    }
+    
+    .progress-bar {
+      width: 300px;
+      height: 20px;
+      background-color: #333;
+      border-radius: 10px;
+      margin-top: 20px;
+      overflow: hidden;
+    }
+    
+    .progress-fill {
+      height: 100%;
+      background-color: #4285f4;
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+    
+    .location-name {
+      margin-top: 10px;
+      font-size: 18px;
+    }
+    
+    /* Debug panel */
+    #debugContainer {
+      position: fixed;
+      bottom: 10px;
+      left: 10px;
+      width: 400px;
+      background-color: rgba(0, 0, 0, 0.7);
+      color: white;
+      font-family: monospace;
+      z-index: 1000;
+      border-radius: 5px;
+      padding: 10px;
+      max-height: 300px;
+      display: none;
+    }
+    
+    #debugHeader {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      border-bottom: 1px solid #444;
+      padding-bottom: 5px;
+    }
+    
+    #debugPanelToggle {
+      cursor: pointer;
+      user-select: none;
+    }
+    
+    #debugPanel {
+      height: 200px;
+      overflow-y: auto;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    
+    .debug-entry {
+      margin-bottom: 3px;
+      border-bottom: 1px dotted #333;
+      word-wrap: break-word;
+    }
+    
+    .debug-info {
+      color: #8ff;
+    }
+    
+    .debug-error {
+      color: #f88;
+    }
+    
+    /* Instructions */
+    .instructions {
+      position: fixed;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: rgba(0, 0, 0, 0.7);
+      color: white;
+      padding: 10px 20px;
+      border-radius: 5px;
+      text-align: center;
+      z-index: 100;
+      transition: opacity 0.5s ease;
+    }
+    
+    .instructions p {
+      margin: 5px 0;
+    }
+    
+    .key {
+      background-color: #444;
+      padding: 2px 8px;
+      border-radius: 3px;
+      margin: 0 3px;
+    }
+    
+    /* Navigation controls */
+    .nav-controls {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      justify-content: center;
+      z-index: 100;
+    }
+    
+    .nav-button {
+      background-color: rgba(0, 0, 0, 0.7);
+      color: white;
+      border: none;
+      border-radius: 5px;
+      padding: 12px 24px;
+      margin: 0 10px;
+      cursor: pointer;
+      font-size: 16px;
+      transition: background-color 0.2s ease;
+    }
+    
+    .nav-button:hover {
+      background-color: rgba(66, 133, 244, 0.8);
+    }
+    
+    /* Info panel */
+    .info-panel {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      background-color: rgba(0, 0, 0, 0.7);
+      color: white;
+      border-radius: 5px;
+      padding: 10px;
+      font-size: 14px;
+      z-index: 100;
+      max-width: 250px;
+    }
+    
+    .info-panel .location {
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+    
+    .info-panel .position {
+      font-size: 12px;
+      color: #aaa;
+    }
+    
+    /* Error notification */
+    .error-notification {
+      position: fixed;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: rgba(255, 50, 50, 0.9);
+      color: white;
+      padding: 15px 25px;
+      border-radius: 5px;
+      z-index: 9998;
+      font-weight: bold;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+    
+    /* Thumbnail preview */
+    .thumbnail-preview {
+      position: fixed;
+      bottom: 70px;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: rgba(0, 0, 0, 0.7);
+      border-radius: 5px;
+      padding: 5px;
+      z-index: 100;
+      display: flex;
+      justify-content: center;
+      gap: 5px;
+    }
+    
+    .thumbnail {
+      width: 50px;
+      height: 30px;
+      opacity: 0.6;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: all 0.2s ease;
+    }
+    
+    .thumbnail:hover {
+      opacity: 0.8;
+    }
+    
+    .thumbnail.active {
+      opacity: 1;
+      border-color: #4285f4;
+    }
+    
+    /* VR specific styles */
+    #vrButton {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      z-index: 200;
+    }
+  </style>
+</head>
+<body>
+  <div id="container"></div>
+  
+  <!-- Loading overlay -->
+  <div class="loading-overlay" id="loadingOverlay">
+    <h2>Loading 360 Photo Sequence</h2>
+    <div class="loading-text" id="loadingText">Initializing viewer</div>
+    <div class="progress-bar">
+      <div class="progress-fill" id="progressFill"></div>
+    </div>
+    <div class="location-name" id="locationName">Benin, West Africa</div>
+  </div>
+  
+  <!-- Error notification -->
+  <div class="error-notification" id="errorNotification"></div>
+  
+  <!-- Debug panel -->
+  <div id="debugContainer">
+    <div id="debugHeader">
+      <span>Debug Information</span>
+      <span id="debugPanelToggle">×</span>
+    </div>
+    <div id="debugPanel"></div>
+  </div>
+  
+  <!-- Instructions -->
+  <div class="instructions" id="instructions">
+    <p>Use <span class="key">←</span> and <span class="key">→</span> arrows or buttons to navigate</p>
+    <p>Drag to look around • Use mouse wheel to zoom</p>
+    <p>Press <span class="key">VR</span> button to enter VR mode</p>
+    <p>In VR: Point controller at triangles to navigate</p>
+  </div>
+  
+  <!-- Info panel -->
+  <div class="info-panel" id="infoPanel">
+    <div class="location">Benin Street View</div>
+    <div class="position" id="positionInfo">Loading...</div>
+    <div id="photoCounter">Image 1 of 7</div>
+  </div>
+  
+  <!-- Navigation controls -->
+  <div class="nav-controls">
+    <button class="nav-button" id="prevButton">Previous</button>
+    <button class="nav-button" id="nextButton">Next</button>
+  </div>
+  
+  <!-- Thumbnail preview -->
+  <div class="thumbnail-preview" id="thumbnailPreview"></div>
+
+  <script>
+    // ===== CONFIG =====
+    // Always use placeholder images since we can't access local files
+    const USE_PLACEHOLDERS = false;
+    
+    // Placeholder images (Royalty-free panoramas)
+    const PLACEHOLDER_IMAGES = [
+      'https://images.pexels.com/photos/1559821/pexels-photo-1559821.jpeg',
+      'https://images.pexels.com/photos/1433052/pexels-photo-1433052.jpeg',
+      'https://images.pexels.com/photos/1252869/pexels-photo-1252869.jpeg',
+      'https://images.pexels.com/photos/2325446/pexels-photo-2325446.jpeg',
+      'https://cdn.pixabay.com/photo/2018/01/14/23/12/nature-3082832_1280.jpg',
+      'https://cdn.pixabay.com/photo/2016/08/11/23/48/mountains-1587287_1280.jpg',
+      'https://cdn.pixabay.com/photo/2017/08/17/10/47/paris-2650808_1280.jpg'
+    ];
+    
+    // Original image paths (we won't be able to use these in this demo)
+    const PANORAMA_IMAGES = [
+      'assets/2025-01.jpg',
+      'assets/2025-01 (1).jpg', 
+      'assets/2025-01 (2).jpg',
+      'assets/2025-01 (3).jpg',
+      'assets/2025-01 (4).jpg',
+      'assets/2025-01 (5).jpg',
+      'assets/2025-01 (6).jpg',
+      'assets/2025-01 (7).jpg',
+      'assets/2025-01 (8).jpg',
+      'assets/2025-01 (9).jpg',
+      'assets/2025-01 (10).jpg',
+      'assets/2025-01 (11).jpg',
+      'assets/2025-01 (12).jpg',
+      'assets/2025-01 (13).jpg',
+      'assets/2025-01 (14).jpg',
+      'assets/2025-01 (15).jpg',
+      'assets/2025-01 (16).jpg',
+      'assets/2025-01 (17).jpg',
+      'assets/2025-01 (18).jpg',
+      'assets/2025-01 (19).jpg',
+    ];
+    
+    // Location data for each panorama
+    const PANORAMA_LOCATIONS = [
+      { latitude: 6.613033413497521, longitude: 2.26106129026251 },
+      { latitude: 6.613103637722834, longitude: 2.260996330854332 },
+      { latitude: 6.613156826485127, longitude: 2.2609223349537757 },
+      { latitude: 6.613189824531064, longitude: 2.2608311051065715 },
+      { latitude: 6.613192329611306, longitude: 2.2607369030113826 },
+      { latitude: 6.6131575474949456, longitude: 2.2606474016144062 },
+      { latitude: 6.613102334844579, longitude: 2.2605714245433943 },
+      { latitude: 6.603178333210233, longitude: 2.2532221547928235 },
+      { latitude: 6.603088389390056, longitude: 2.25325145063276 },
+      { latitude: 6.603015678470221, longitude: 2.253309800936702 },
+      { latitude: 6.602963139039731, longitude: 2.2533877601346544 },
+      { latitude: 6.602930263717786, longitude: 2.2534726303435746 },
+      { latitude: 6.60292926849661, longitude: 2.2535073080794956 },
+      { latitude: 6.602917779224612, longitude: 2.2536009736538163 },
+      { latitude: 6.602903598882117, longitude: 2.253693276658227 },
+      { latitude: 6.602882440696533, longitude: 2.253786982020869 },
+      { latitude: 6.60285119997703, longitude: 2.253878564852968 },
+      { latitude: 6.602804918397261, longitude: 2.2539618537904373 },
+      { latitude: 6.60274820990419, longitude: 2.254040058652618 },
+      { latitude: 6.602691621523119, longitude: 2.2541138229844084 }
+    ];
+    
+    // Debug mode
+    const DEBUG = true;
+
+    // ===== GLOBAL VARIABLES =====
+    let currentPhotoIndex = 0;
+    let isLoading = true;
+    
+    // Three.js variables
+    let camera, scene, renderer;
+    let controls;
+    let sphere;
+    let loadingManager;
+    let textureLoader;
+    
+    // VR specific variables
+    let controller1, controller2;
+    let raycaster, intersected;
+    let forwardTriangle, backwardTriangle;
+    let isVRMode = false;
+    
+    // ===== DEBUG FUNCTIONS =====
+    function log(message, obj) {
+      if (DEBUG) {
+        if (obj) {
+          console.log(`[DEBUG] ${message}`, obj);
+          appendToDebugPanel(`${message}: ${JSON.stringify(obj)}`);
+        } else {
+          console.log(`[DEBUG] ${message}`);
+          appendToDebugPanel(message);
+        }
+      }
+    }
+
+    function error(message, err) {
+      console.error(`[ERROR] ${message}`, err);
+      appendToDebugPanel(`ERROR: ${message} - ${err?.message || err}`, 'error');
+      
+      // Show error notification
+      showErrorNotification(`${message}. ${err?.message || ''}`);
+    }
+
+    function showErrorNotification(message, duration = 4000) {
+      const notification = document.getElementById('errorNotification');
+      notification.textContent = message;
+      notification.style.opacity = '1';
+      
+      setTimeout(() => {
+        notification.style.opacity = '0';
+      }, duration);
+    }
+
+    function appendToDebugPanel(message, type = 'info') {
+      const debugPanel = document.getElementById('debugPanel');
+      if (debugPanel) {
+        const entry = document.createElement('div');
+        entry.className = `debug-entry debug-${type}`;
+        entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+        debugPanel.appendChild(entry);
+        
+        // Auto-scroll to bottom
+        debugPanel.scrollTop = debugPanel.scrollHeight;
+        
+        // Limit number of entries
+        if (debugPanel.children.length > 100) {
+          debugPanel.removeChild(debugPanel.children[0]);
+        }
+      }
+    }
+    
+    // Force close loading screen after timeout
+    function forceCloseLoadingScreen() {
+      const MAX_LOADING_TIME = 10000; // 10 seconds
+      
+      setTimeout(() => {
+        if (isLoading) {
+          log('Force closing loading screen after timeout');
+          document.getElementById('loadingOverlay').style.display = 'none';
+          isLoading = false;
+        }
+      }, MAX_LOADING_TIME);
+    }
+
+    // Create fallback implementations if modules fail to load
+    function createFallbackOrbitControls() {
+      log('Creating fallback OrbitControls');
+      
+      // Create a simple implementation that mimics the basic functionality
+      THREE.OrbitControls = function(camera, domElement) {
+        this.camera = camera;
+        this.domElement = domElement;
+        
+        this.enableZoom = true;
+        this.enablePan = true;
+        this.rotateSpeed = 1.0;
+        this.zoomSpeed = 1.0;
+        this.enableDamping = false;
+        this.dampingFactor = 0.25;
+        
+        let isUserInteracting = false;
+        let onPointerDownPointerX = 0;
+        let onPointerDownPointerY = 0;
+        let phi = 0, theta = 0;
+        let onPointerDownPhi = 0;
+        let onPointerDownTheta = 0;
+        
+        const scope = this;
+        
+        function onMouseDown(event) {
+          if (event.button === 0) { // left mouse button
+            isUserInteracting = true;
+            onPointerDownPointerX = event.clientX;
+            onPointerDownPointerY = event.clientY;
+            onPointerDownTheta = theta;
+            onPointerDownPhi = phi;
+          }
+        }
+        
+        function onMouseMove(event) {
+          if (isUserInteracting) {
+            theta = onPointerDownTheta - ((event.clientX - onPointerDownPointerX) * 0.01 * scope.rotateSpeed);
+            phi = onPointerDownPhi + ((event.clientY - onPointerDownPointerY) * 0.01 * scope.rotateSpeed);
+            
+            // Limit phi to avoid flipping
+            phi = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, phi));
+            
+            camera.target = new THREE.Vector3();
+            camera.lookAt(camera.target);
+            camera.rotation.y = theta;
+            camera.rotation.x = phi;
+          }
+        }
+        
+        function onMouseUp() {
+          isUserInteracting = false;
+        }
+        
+        function onMouseWheel(event) {
+          if (scope.enableZoom) {
+            const delta = event.deltaY || event.detail || -event.wheelDelta;
+            if (delta > 0) {
+              scope.camera.fov = Math.min(scope.camera.fov + 1, 100);
+            } else {
+              scope.camera.fov = Math.max(scope.camera.fov - 1, 30);
+            }
+            scope.camera.updateProjectionMatrix();
+          }
+        }
+        
+        domElement.addEventListener('mousedown', onMouseDown, false);
+        domElement.addEventListener('mousemove', onMouseMove, false);
+        domElement.addEventListener('mouseup', onMouseUp, false);
+        domElement.addEventListener('wheel', onMouseWheel, false);
+        domElement.addEventListener('DOMMouseScroll', onMouseWheel, false); // firefox
+        
+        this.update = function() {
+          // Does nothing in simple version unless damping is enabled
+        };
+        
+        this.dispose = function() {
+          domElement.removeEventListener('mousedown', onMouseDown, false);
+          domElement.removeEventListener('mousemove', onMouseMove, false);
+          domElement.removeEventListener('mouseup', onMouseUp, false);
+          domElement.removeEventListener('wheel', onMouseWheel, false);
+          domElement.removeEventListener('DOMMouseScroll', onMouseWheel, false);
+        };
+      };
+      
+      log('Fallback OrbitControls created');
+    }
+
+    // Create fallback for VR components
+    function createFallbackVRComponents() {
+      log('Creating fallback VR components');
+      
+      // Create a simple VRButton that just displays a message
+      THREE.VRButton = {
+        createButton: function(renderer) {
+          const button = document.createElement('button');
+          button.style.display = 'block';
+          button.style.padding = '12px 24px';
+          button.style.border = 'none';
+          button.style.borderRadius = '5px';
+          button.style.background = '#0066ff';
+          button.style.color = '#fff';
+          button.style.font = 'normal 16px sans-serif';
+          button.textContent = 'VR NOT SUPPORTED';
+          
+          button.onclick = function() {
+            showErrorNotification('WebXR VR not supported in this browser', 3000);
+          };
+          
+          return button;
+        }
+      };
+      
+      log('Fallback VR components created');
+    }
+
+    // Main initialization function
+    function initializeApplication() {
+      log('Initializing application');
+      
+      // Initialize debug panel
+      initializeDebugPanel();
+      
+      // Setup loading animation
+      startLoadingAnimation();
+      
+      // Initialize Three.js
+      initThreeJs();
+      
+      // Set up event handlers
+      setupEventListeners();
+      
+      // Force close loading screen if it gets stuck
+      forceCloseLoadingScreen();
+      
+      // Create thumbnails
+      createThumbnails();
+    }
+
+    function initializeDebugPanel() {
+      document.getElementById('debugPanelToggle').addEventListener('click', function() {
+        document.getElementById('debugContainer').style.display = 'none';
+      });
+      
+      // Toggle debug panel with 'D' key
+      window.addEventListener('keydown', function(evt) {
+        if (evt.key === 'd' || evt.key === 'D') {
+          const debugPanel = document.getElementById('debugContainer');
+          debugPanel.style.display = debugPanel.style.display === 'none' ? 'block' : 'none';
+        }
+      });
+      
+      // Show debug panel by default in debug mode
+      if (DEBUG) {
+        document.getElementById('debugContainer').style.display = 'block';
+      }
+    }
+
+    // Show loading animation
+    function startLoadingAnimation() {
+      let progress = 0;
+      const interval = setInterval(() => {
+        progress += 3;
+        document.getElementById('progressFill').style.width = `${progress}%`;
+        if (progress >= 95) {
+          clearInterval(interval);
+        }
+      }, 100);
+    }
+
+    // Initialize Three.js scene
+    function initThreeJs() {
+      log('Initializing Three.js');
+      
+      // Set up the loading manager to track texture loading progress
+      loadingManager = new THREE.LoadingManager();
+      
+      loadingManager.onProgress = function(url, itemsLoaded, itemsTotal) {
+        const progress = Math.floor((itemsLoaded / itemsTotal) * 100);
+        log(`Loading: ${progress}% (${itemsLoaded}/${itemsTotal})`);
+        document.getElementById('progressFill').style.width = `${progress}%`;
+      };
+      
+      loadingManager.onLoad = function() {
+        log('All textures loaded successfully');
+        document.getElementById('progressFill').style.width = '100%';
+        setTimeout(() => {
+          document.getElementById('loadingOverlay').style.display = 'none';
+          isLoading = false;
+        }, 500);
+      };
+      
+      loadingManager.onError = function(url) {
+        error(`Error loading texture: ${url}`);
+        // Force-hide loading screen and continue with fallback
+        setTimeout(() => {
+          document.getElementById('loadingOverlay').style.display = 'none';
+          isLoading = false;
+        }, 500);
+      };
+      
+      // Create texture loader
+      textureLoader = new THREE.TextureLoader(loadingManager);
+      
+      // Create scene
+      scene = new THREE.Scene();
+      
+      // Create camera
+      camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+      camera.position.set(0, 0, 0.1); // Small offset to avoid issues
+      
+      // Create renderer with WebXR support
+      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(window.devicePixelRatio);
+      renderer.xr.enabled = true; // Enable WebXR
+      document.getElementById('container').appendChild(renderer.domElement);
+      
+      // Add VR button
+      try {
+        document.body.appendChild(THREE.VRButton.createButton(renderer));
+      } catch (err) {
+        error("Error creating VR button", err);
+        createFallbackVRComponents();
+        document.body.appendChild(THREE.VRButton.createButton(renderer));
+      }
+      
+      // Create sphere geometry for the panorama
+      const geometry = new THREE.SphereGeometry(500, 60, 40);
+      // Flip the geometry inside out
+      geometry.scale(-1, 1, 1);
+      
+      // Create a basic material initially (will be replaced when texture loads)
+      const material = new THREE.MeshBasicMaterial({
+        color: 0x000000
+      });
+      
+      // Create a mesh with the geometry and material
+      sphere = new THREE.Mesh(geometry, material);
+      scene.add(sphere);
+      
+      try {
+        // Add controls for panning and zooming
+        controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableZoom = true;
+        controls.enablePan = false;
+        controls.rotateSpeed = 0.3;
+        controls.zoomSpeed = 1.0;
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.2;
+      } catch (e) {
+        error("Error creating OrbitControls", e);
+        // Try creating the fallback controls again
+        createFallbackOrbitControls();
+        controls = new THREE.OrbitControls(camera, renderer.domElement);
+      }
+      
+      // Setup VR components
+      setupVRComponents();
+      
+      // Handle window resize
+      window.addEventListener('resize', onWindowResize, false);
+      
+      // Start render loop
+      renderer.setAnimationLoop(animate);
+      
+      // Load the first panorama
+      loadPanorama(currentPhotoIndex);
+    }
+
+    // Setup VR components
+    function setupVRComponents() {
+      // Create a raycaster for controller interaction
+      raycaster = new THREE.Raycaster();
+      
+      // Create controllers
+      controller1 = renderer.xr.getController(0);
+      controller1.addEventListener('selectstart', onSelectStart);
+      controller1.addEventListener('selectend', onSelectEnd);
+      scene.add(controller1);
+      
+      controller2 = renderer.xr.getController(1);
+      controller2.addEventListener('selectstart', onSelectStart);
+      controller2.addEventListener('selectend', onSelectEnd);
+      scene.add(controller2);
+      
+      // Create controller models (visible in VR)
+      const controllerModelFactory = new THREE.XRControllerModelFactory();
+      
+      const controllerGrip1 = renderer.xr.getControllerGrip(0);
+      controllerGrip1.add(controllerModelFactory.createControllerModel(controllerGrip1));
+      scene.add(controllerGrip1);
+      
+      const controllerGrip2 = renderer.xr.getControllerGrip(1);
+      controllerGrip2.add(controllerModelFactory.createControllerModel(controllerGrip2));
+      scene.add(controllerGrip2);
+      
+      // Create navigation triangles for VR
+      createNavigationTriangles();
+      
+      // Add line for controller pointing ray
+      const geometry = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(0, 0, 0),
+        new THREE.Vector3(0, 0, -1)
+      ]);
+      
+      const line = new THREE.Line(geometry);
+      line.name = 'ray';
+      line.scale.z = 5;
+      
+      controller1.add(line.clone());
+      controller2.add(line.clone());
+      
+      // Listen for VR session start/end
+      renderer.xr.addEventListener('sessionstart', () => {
+        log('VR session started');
+        isVRMode = true;
+        showVRNavigationTriangles();
+        // Hide non-VR UI elements
+        document.querySelectorAll('.nav-controls, .info-panel, .instructions, .thumbnail-preview').forEach(el => {
+          el.style.display = 'none';
+        });
+      });
+      
+      renderer.xr.addEventListener('sessionend', () => {
+        log('VR session ended');
+        isVRMode = false;
+        hideVRNavigationTriangles();
+        // Restore non-VR UI elements
+        document.querySelectorAll('.nav-controls, .info-panel, .instructions, .thumbnail-preview').forEach(el => {
+          el.style.display = '';
+        });
+      });
+    }
+
+    // Create navigation triangles for VR
+    function createNavigationTriangles() {
+      log('Creating navigation triangles for VR');
+      
+      // Create triangle geometry for forward navigation
+      const forwardGeometry = new THREE.BufferGeometry();
+      const forwardVertices = new Float32Array([
+         0.0,  0.1,  0.0,   // top
+        -0.1, -0.1,  0.0,   // bottom left
+         0.1, -0.1,  0.0    // bottom right
+      ]);
+      forwardGeometry.setAttribute('position', new THREE.BufferAttribute(forwardVertices, 3));
+      forwardGeometry.computeVertexNormals();
+      
+      // Create triangle geometry for backward navigation
+      const backwardGeometry = new THREE.BufferGeometry();
+      const backwardVertices = new Float32Array([
+         0.0, -0.1,  0.0,   // bottom
+        -0.1,  0.1,  0.0,   // top left
+         0.1,  0.1,  0.0    // top right
+      ]);
+      backwardGeometry.setAttribute('position', new THREE.BufferAttribute(backwardVertices, 3));
+      backwardGeometry.computeVertexNormals();
+      
+      // Create materials for triangles
+      const forwardMaterial = new THREE.MeshBasicMaterial({ 
+        color: 0x4285f4,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.8
+      });
+      
+      const backwardMaterial = new THREE.MeshBasicMaterial({ 
+        color: 0xf44242,
+        side: THREE.DoubleSide, 
+        transparent: true,
+        opacity: 0.8
+      });
+      
+      // Create triangle meshes
+      forwardTriangle = new THREE.Mesh(forwardGeometry, forwardMaterial);
+      forwardTriangle.name = 'forwardTriangle';
+      forwardTriangle.position.set(0, 0, -2); // Position in front of user
+      forwardTriangle.position.y = -0.5;      // Position below eye level
+      forwardTriangle.scale.set(0.2, 0.2, 0.2); // Scale to appropriate size
+      forwardTriangle.userData.isNavigationTriangle = true;
+      forwardTriangle.userData.direction = 'forward';
+      
+      backwardTriangle = new THREE.Mesh(backwardGeometry, backwardMaterial);
+      backwardTriangle.name = 'backwardTriangle';
+      backwardTriangle.position.set(0, 0, -2); // Position in front of user
+      backwardTriangle.position.y = -0.5;      // Position below eye level
+      backwardTriangle.position.x = -0.3;      // Position to the left
+      backwardTriangle.scale.set(0.2, 0.2, 0.2); // Scale to appropriate size
+      backwardTriangle.userData.isNavigationTriangle = true;
+      backwardTriangle.userData.direction = 'backward';
+      
+      // Don't add to scene yet - will add when entering VR
+      forwardTriangle.visible = false;
+      backwardTriangle.visible = false;
+      
+      scene.add(forwardTriangle);
+      scene.add(backwardTriangle);
+    }
+
+    // Show/hide VR navigation triangles
+    function showVRNavigationTriangles() {
+      if (forwardTriangle && backwardTriangle) {
+        // Only show forward triangle if not at the last panorama
+        const images = USE_PLACEHOLDERS ? PLACEHOLDER_IMAGES : PANORAMA_IMAGES;
+        forwardTriangle.visible = currentPhotoIndex < images.length - 1;
+        
+        // Only show backward triangle if not at the first panorama
+        backwardTriangle.visible = currentPhotoIndex > 0;
+      }
+    }
+
+    function hideVRNavigationTriangles() {
+      if (forwardTriangle && backwardTriangle) {
+        forwardTriangle.visible = false;
+        backwardTriangle.visible = false;
+      }
+    }
+
+    // Handle VR controller select events
+    function onSelectStart(event) {
+      const controller = event.target;
+      
+      // Check for intersections with navigation triangles
+      handleControllerIntersection(controller);
+    }
+
+    function onSelectEnd(event) {
+      // Reset intersected object
+      intersected = null;
+    }
+
+    function handleControllerIntersection(controller) {
+      if (!isVRMode) return;
+      
+      // Create a temp vector to store controller direction
+      const tempMatrix = new THREE.Matrix4();
+      tempMatrix.identity().extractRotation(controller.matrixWorld);
+      
+      raycaster.ray.origin.setFromMatrixPosition(controller.matrixWorld);
+      raycaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
+      
+      // Check intersection with navigation triangles
+      const intersects = raycaster.intersectObjects([forwardTriangle, backwardTriangle]);
+      
+      if (intersects.length > 0) {
+        intersected = intersects[0].object;
+        
+        if (intersected.userData.isNavigationTriangle) {
+          // Navigate based on direction
+          if (intersected.userData.direction === 'forward') {
+            navigateNext();
+          } else if (intersected.userData.direction === 'backward') {
+            navigatePrev();
+          }
+        }
+      }
+    }
+
+    // Handle window resize
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    // Animation loop
+    function animate() {
+      if (controls) {
+        controls.update(); // Required for damping
+      }
+      
+      // In VR, update triangle positions to follow camera direction
+      if (isVRMode) {
+        if (forwardTriangle && backwardTriangle) {
+          // Get camera direction
+          const cameraDirection = new THREE.Vector3(0, 0, -1);
+          cameraDirection.applyQuaternion(camera.quaternion);
+          
+          // Position triangles in front of user, but at a fixed distance
+          const triangleDistance = -2; // 2 meters in front
+          
+          // Forward triangle position
+          forwardTriangle.position.copy(camera.position);
+          forwardTriangle.position.addScaledVector(cameraDirection, triangleDistance);
+          forwardTriangle.position.y -= 0.5; // Below eye level
+          forwardTriangle.position.x += 0.3; // To the right
+          
+          // Make triangle face the user
+          forwardTriangle.quaternion.copy(camera.quaternion);
+          
+          // Backward triangle position
+          backwardTriangle.position.copy(camera.position);
+          backwardTriangle.position.addScaledVector(cameraDirection, triangleDistance);
+          backwardTriangle.position.y -= 0.5; // Below eye level
+          backwardTriangle.position.x -= 0.3; // To the left
+          
+          // Make triangle face the user
+          backwardTriangle.quaternion.copy(camera.quaternion);
+          
+          // Check for controller intersections
+          if (controller1) handleControllerIntersection(controller1);
+          if (controller2) handleControllerIntersection(controller2);
+        }
+      }
+      
+      renderer.render(scene, camera);
+    }
+
+    // Load panorama by index
+    function loadPanorama(index) {
+      // Use the correct image array based on USE_PLACEHOLDERS setting
+      const images = USE_PLACEHOLDERS ? PLACEHOLDER_IMAGES : PANORAMA_IMAGES;
+      log(`Loading panorama ${index + 1}/${images.length}`);
+      
+      // Update UI displays
+      updateUIForCurrentPhoto(index);
+      
+      // Select the right image source
+      const imageSrc = images[index];
+      
+      if (!imageSrc) {
+        error(`No image source available for index ${index}`);
+        return;
+      }
+      
+      // Show loading indicator
+      isLoading = true;
+      document.getElementById('loadingOverlay').style.display = 'flex';
+      document.getElementById('loadingText').textContent = 'Loading 360° image...';
+      
+      // Load texture with THREE.js
+      try {
+        textureLoader.load(
+          // URL
+          imageSrc,
+          
+          // onLoad callback
+          function(texture) {
+            log(`Texture loaded successfully: ${imageSrc}`);
+            
+            // Apply texture to sphere
+            sphere.material.dispose();
+            sphere.material = new THREE.MeshBasicMaterial({
+              map: texture
+            });
+            
+            // Hide loading overlay
+            document.getElementById('progressFill').style.width = '100%';
+            setTimeout(() => {
+              document.getElementById('loadingOverlay').style.display = 'none';
+              isLoading = false;
+            }, 300);
+            
+            // Update thumbnails to show current active panorama
+            updateActiveThumbnail(index);
+            
+            // Update VR navigation triangles visibility
+            if (isVRMode) {
+              showVRNavigationTriangles();
+            }
+          },
+          
+          // onProgress callback
+          function(xhr) {
+            const percentComplete = Math.floor((xhr.loaded / xhr.total) * 100);
+            document.getElementById('progressFill').style.width = `${percentComplete}%`;
+            log(`Loading texture: ${percentComplete}%`);
+          },
+          
+          // onError callback
+          function(err) {
+            error(`Error loading texture from ${imageSrc}`, err);
+            
+            // Try loading a fallback placeholder if local file fails
+            if (!USE_PLACEHOLDERS && PLACEHOLDER_IMAGES[index]) {
+              log(`Trying fallback placeholder image for ${imageSrc}`);
+              textureLoader.load(
+                PLACEHOLDER_IMAGES[index],
+                function(texture) {
+                  log('Fallback texture loaded successfully');
+                  sphere.material.dispose();
+                  sphere.material = new THREE.MeshBasicMaterial({
+                    map: texture
+                  });
+                  
+                  document.getElementById('progressFill').style.width = '100%';
+                  setTimeout(() => {
+                    document.getElementById('loadingOverlay').style.display = 'none';
+                    isLoading = false;
+                  }, 300);
+                  
+                  showErrorNotification('Using placeholder image (local file not found)', 3000);
+                },
+                null,
+                function() {
+                  // If even fallback fails, just hide loading
+                  document.getElementById('loadingOverlay').style.display = 'none';
+                  isLoading = false;
+                }
+              );
+            } else {
+              document.getElementById('loadingOverlay').style.display = 'none';
+              isLoading = false;
+            }
+          }
+        );
+      } catch (err) {
+        error('Exception while loading texture', err);
+        document.getElementById('loadingOverlay').style.display = 'none';
+        isLoading = false;
+      }
+    }
+
+    // Update UI elements for current photo
+    function updateUIForCurrentPhoto(index) {
+      const images = USE_PLACEHOLDERS ? PLACEHOLDER_IMAGES : PANORAMA_IMAGES;
+      
+      // Update location info
+      const currentLocation = PANORAMA_LOCATIONS[index] || { latitude: 0, longitude: 0 };
+      const locationText = `Benin, West Africa: ${currentLocation.latitude.toFixed(6)}, ${currentLocation.longitude.toFixed(6)}`;
+      document.getElementById('locationName').textContent = locationText;
+      
+      // Update position info in the info panel
+      document.getElementById('positionInfo').textContent = `${currentLocation.latitude.toFixed(6)}, ${currentLocation.longitude.toFixed(6)}`;
+      document.getElementById('photoCounter').textContent = `Image ${index + 1} of ${images.length}`;
+    }
+
+    // Create thumbnail preview
+    function createThumbnails() {
+      const thumbnailContainer = document.getElementById('thumbnailPreview');
+      thumbnailContainer.innerHTML = '';
+      
+      const images = USE_PLACEHOLDERS ? PLACEHOLDER_IMAGES : PANORAMA_IMAGES;
+      
+      // Check if we have enough placeholder images for thumbnails
+      const usePlaceholders = PLACEHOLDER_IMAGES.length >= images.length;
+      
+      images.forEach((src, index) => {
+        const thumb = document.createElement('img');
+        thumb.className = 'thumbnail';
+        
+        // For thumbnail source, use either:
+        // 1. The placeholder image if we have enough and not using original images
+        // 2. The same image but with a smaller size parameter (=w100) for better performance
+        if (usePlaceholders && PLACEHOLDER_IMAGES[index]) {
+          // Use placeholder but with smaller size for faster loading
+          const placeholderSrc = PLACEHOLDER_IMAGES[index].replace('=s0', '=w100');
+          thumb.src = placeholderSrc;
+        } else {
+          // Use the same image but with smaller size
+          const smallerSrc = src.replace('=s0', '=w100');
+          thumb.src = smallerSrc;
+        }
+        
+        thumb.alt = `Panorama ${index + 1}`;
+        thumb.title = `Panorama ${index + 1}`;
+        
+        if (index === currentPhotoIndex) {
+          thumb.classList.add('active');
+        }
+        
+        thumb.addEventListener('click', () => {
+          if (currentPhotoIndex !== index) {
+            currentPhotoIndex = index;
+            loadPanorama(index);
+          }
+        });
+        
+        thumbnailContainer.appendChild(thumb);
+      });
+    }
+
+    // Update active thumbnail
+    function updateActiveThumbnail(index) {
+      const thumbnails = document.querySelectorAll('.thumbnail');
+      thumbnails.forEach((thumb, i) => {
+        if (i === index) {
+          thumb.classList.add('active');
+        } else {
+          thumb.classList.remove('active');
+        }
+      });
+    }
+
+    // Set up event listeners for UI controls
+    function setupEventListeners() {
+      // Navigation buttons
+      document.getElementById('prevButton').addEventListener('click', navigatePrev);
+      document.getElementById('nextButton').addEventListener('click', navigateNext);
+      
+      // Keyboard controls
+      window.addEventListener('keydown', function(evt) {
+        if (evt.key === 'ArrowLeft') {
+          navigatePrev();
+        } else if (evt.key === 'ArrowRight') {
+          navigateNext();
+        }
+      });
+      
+      // Auto-hide instructions after 10 seconds
+      setTimeout(() => {
+        const instructions = document.getElementById('instructions');
+        if (instructions) {
+          instructions.style.opacity = '0';
+        }
+      }, 10000);
+      
+      log('Event listeners set up');
+    }
+
+    // Navigate to next panorama
+    function navigateNext() {
+      if (isLoading) return; // Prevent navigation during loading
+      
+      log('Navigating to next panorama');
+      
+      const images = USE_PLACEHOLDERS ? PLACEHOLDER_IMAGES : PANORAMA_IMAGES;
+      if (currentPhotoIndex < images.length - 1) {
+        currentPhotoIndex++;
+        loadPanorama(currentPhotoIndex);
+      } else {
+        log('Already at the last panorama');
+        showErrorNotification('Already at the last image', 1500);
+      }
+    }
+
+    // Navigate to previous panorama
+    function navigatePrev() {
+      if (isLoading) return; // Prevent navigation during loading
+      
+      log('Navigating to previous panorama');
+      
+      if (currentPhotoIndex > 0) {
+        currentPhotoIndex--;
+        loadPanorama(currentPhotoIndex);
+      } else {
+        log('Already at the first panorama');
+        showErrorNotification('Already at the first image', 1500);
+      }
+    }
+
+    // Fallback VR components factory
+    // This is a fallback implementation if the original modules fail to load
+    function createFallbackVRComponents() {
+      log('Creating fallback VR Button implementation');
+      
+      THREE.VRButton = {
+        createButton: function(renderer) {
+          const button = document.createElement('button');
+          button.id = 'vrButton';
+          button.style.display = 'block';
+          button.style.padding = '12px 24px';
+          button.style.border = 'none';
+          button.style.borderRadius = '5px';
+          button.style.background = '#0066ff';
+          button.style.color = '#fff';
+          button.style.font = 'normal 16px sans-serif';
+          button.style.cursor = 'pointer';
+          
+          if (navigator.xr) {
+            navigator.xr.isSessionSupported('immersive-vr').then(function(supported) {
+              if (supported) {
+                button.textContent = 'ENTER VR';
+                button.onclick = function() {
+                  // Request VR session
+                  navigator.xr.requestSession('immersive-vr', {
+                    optionalFeatures: ['local-floor', 'bounded-floor']
+                  }).then(onSessionStarted, onRequestSessionError);
+                };
+              } else {
+                button.textContent = 'VR NOT SUPPORTED';
+                button.onclick = function() {
+                  showErrorNotification('VR not supported on this device/browser', 3000);
+                };
+                button.style.background = '#888888';
+              }
+            });
+          } else {
+            button.textContent = 'VR NOT AVAILABLE';
+            button.onclick = function() {
+              showErrorNotification('WebXR not available in this browser', 3000);
+            };
+            button.style.background = '#888888';
+          }
+          
+          function onSessionStarted(session) {
+            session.addEventListener('end', onSessionEnded);
+            
+            renderer.xr.setSession(session);
+            button.textContent = 'EXIT VR';
+            
+            button.onclick = function() {
+              session.end();
+            };
+            
+            // Emit session start event
+            const event = new CustomEvent('sessionstart');
+            renderer.xr.dispatchEvent(event);
+          }
+          
+          function onSessionEnded() {
+            // Emit session end event
+            const event = new CustomEvent('sessionend');
+            renderer.xr.dispatchEvent(event);
+            
+            button.textContent = 'ENTER VR';
+            
+            button.onclick = function() {
+              navigator.xr.requestSession('immersive-vr', {
+                optionalFeatures: ['local-floor', 'bounded-floor']
+              }).then(onSessionStarted, onRequestSessionError);
+            };
+          }
+          
+          function onRequestSessionError(error) {
+            showErrorNotification('Error entering VR: ' + error, 3000);
+          }
+          
+          return button;
+        }
+      };
+      
+      log('Fallback VR Button created');
+      
+      // Mock the XRControllerModelFactory if it doesn't exist
+      if (!('XRControllerModelFactory' in THREE)) {
+        log('Creating fallback XRControllerModelFactory');
+        
+        THREE.XRControllerModelFactory = function() {
+          return {
+            createControllerModel: function() {
+              // Create a simple controller model (blue cylinder)
+              const geometry = new THREE.CylinderGeometry(0.01, 0.02, 0.08, 16);
+              const material = new THREE.MeshBasicMaterial({ color: 0x0055ff });
+              return new THREE.Mesh(geometry, material);
+            }
+          };
+        };
+      }
+    }
+  </script>
+</body>
+</html>
