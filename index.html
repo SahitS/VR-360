@@ -883,19 +883,19 @@
       // Create triangle meshes
       forwardTriangle = new THREE.Mesh(forwardGeometry, forwardMaterial);
       forwardTriangle.name = 'forwardTriangle';
-      forwardTriangle.position.set(0, 0, -1); // Position closer to user (was -2)
-      forwardTriangle.position.y = -0.3;      // Position higher (was -0.5)
-      forwardTriangle.position.x = 0.3;       // Position more to the right
-      forwardTriangle.scale.set(0.3, 0.3, 0.3); // Scale larger (was 0.2)
+      forwardTriangle.position.set(0, 0, -2); // Position closer to user (was -2)
+      forwardTriangle.position.y = 0;      // Position higher (was -0.5)
+      forwardTriangle.position.x = 0.5;       // Position more to the right
+      forwardTriangle.scale.set(0.8, 0.8, 0.8); // Scale larger (was 0.2)
       forwardTriangle.userData.isNavigationTriangle = true;
       forwardTriangle.userData.direction = 'forward';
       
       backwardTriangle = new THREE.Mesh(backwardGeometry, backwardMaterial);
       backwardTriangle.name = 'backwardTriangle';
-      backwardTriangle.position.set(0, 0, -1); // Position closer to user (was -2)
-      backwardTriangle.position.y = -0.3;      // Position higher (was -0.5)
-      backwardTriangle.position.x = -0.3;      // Position to the left
-      backwardTriangle.scale.set(0.3, 0.3, 0.3); // Scale larger (was 0.2)
+      backwardTriangle.position.set(0, 0, -2); // Position closer to user (was -2)
+      backwardTriangle.position.y = 0;      // Position higher (was -0.5)
+      backwardTriangle.position.x = -0.5;      // Position to the left
+      backwardTriangle.scale.set(0.8, 0.8, 0.8); // Scale larger (was 0.2)
       backwardTriangle.userData.isNavigationTriangle = true;
       backwardTriangle.userData.direction = 'backward';
       
@@ -923,18 +923,18 @@
         log('Triangle visibility updated: forward=' + forwardTriangle.visible + ', backward=' + backwardTriangle.visible);
         
         // Add debug spheres to verify positioning
-        const sphereGeometry = new THREE.SphereGeometry(0.05, 16, 16);
-        const sphereMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+        // const sphereGeometry = new THREE.SphereGeometry(0.05, 16, 16);
+        // const sphereMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00 });
         
-        const forwardSphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
-        forwardSphere.position.copy(forwardTriangle.position);
-        scene.add(forwardSphere);
+        // const forwardSphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+        // forwardSphere.position.copy(forwardTriangle.position);
+        // scene.add(forwardSphere);
         
-        const backwardSphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
-        backwardSphere.position.copy(backwardTriangle.position);
-        scene.add(backwardSphere);
+        // const backwardSphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+        // backwardSphere.position.copy(backwardTriangle.position);
+        // scene.add(backwardSphere);
         
-        log('Debug spheres added at triangle positions');
+        // log('Debug spheres added at triangle positions');
       } else {
         error('Cannot show triangles - they are not initialized');
       }
@@ -1008,13 +1008,13 @@
           cameraDirection.applyQuaternion(camera.quaternion);
           
           // Position triangles in front of user, but at a fixed distance
-          const triangleDistance = -1; // 2 meters in front
+          const triangleDistance = -3; // 3 meters in front (was -1)
           
           // Forward triangle position
           forwardTriangle.position.copy(camera.position);
           forwardTriangle.position.addScaledVector(cameraDirection, triangleDistance);
-          forwardTriangle.position.y -= 0.3; // Below eye level
-          forwardTriangle.position.x += 0.3; // To the right
+          forwardTriangle.position.y = camera.position.y; // At eye level (was -= 0.3)
+          forwardTriangle.position.x += 0.7; // More to the right (was 0.3)
           
           // Make triangle face the user
           forwardTriangle.quaternion.copy(camera.quaternion);
@@ -1022,11 +1022,8 @@
           // Backward triangle position
           backwardTriangle.position.copy(camera.position);
           backwardTriangle.position.addScaledVector(cameraDirection, triangleDistance);
-          backwardTriangle.position.y -= 0.3; // Below eye level
-          backwardTriangle.position.x -= 0.3; // To the left
-          
-          // Make triangle face the user
-          backwardTriangle.quaternion.copy(camera.quaternion);
+          backwardTriangle.position.y = camera.position.y; // At eye level (was -= 0.3)
+          backwardTriangle.position.x -= 0.7; // More to the left (was -0.3)
           
           // Check for controller intersections
           if (controller1) handleControllerIntersection(controller1);
