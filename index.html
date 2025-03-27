@@ -410,32 +410,30 @@
       { latitude: 6.602691621523119, longitude: 2.2541138229844084 }
     ];
     
-    // NEW: Custom arrow offset coordinates for each panorama
-    // Format: [x, y] - where x is left/right offset and y is up/down offset
-    // These are temporary placeholder values, you'll need to fine-tune these for each location
-    const ARROW_CUSTOM_POSITIONS = [
-      // For each panorama, define custom offsets for both arrows
-      // [forwardX, forwardY, backwardX, backwardY]
-      [5, 0, -3, 0],       // Panorama 0
+    // MODIFIED: Absolute arrow position offsets relative to the first point reference
+    // Format: [forwardX, forwardY, backwardX, backwardY]
+    // These are now absolute offsets based on the FIRST reference point, NOT relative to each panorama
+    const ARROW_ABSOLUTE_POSITIONS = [
+      [5, 0, 0, 0],       // Panorama 0 (First reference point)
       [4, 0, 2, 0],       // Panorama 1
-      [0, 0, -2, 0],       // Panorama 2
-      [1, 0, -2, 0],       // Panorama 3
-      [1, 0, -2, 0],       // Panorama 4
-      [0.5, 0, -2.5, 0],       // Panorama 5
-      [-0.5, 0, -2.5, 0],       // Panorama 6
-      [0.75, 0, -2.25, 0],       // Panorama 7
-      [0.25, 0, -2.75, 0],       // Panorama 8
-      [1, 0, -2, 0],       // Panorama 9
-      [2, 0, -2, 0],       // Panorama 10
-      [2, 0, -1, 0],       // Panorama 11
-      [5, 0, 3, 0],       // Panorama 12
-      [-1, 0, -4, 0],       // Panorama 13
-      [2, 0, -1, 0],       // Panorama 14
-      [-0.5, 0, -3.5, 0],       // Panorama 15
-      [3, 0, 0, 0],       // Panorama 16
-      [2, 0, -1, 0],       // Panorama 17
-      [-2, 0, -5, 0],       // Panorama 18
-      [0, 0, -4, 0]        // Panorama 19
+      [4, 0, 2, 0],       // Panorama 2
+      [5, 0, 3, 0],       // Panorama 3
+      [6, 0, 4, 0],       // Panorama 4
+      [6.5, 0, 4.5, 0],       // Panorama 5
+      [6, 0, 4, 0],       // Panorama 6
+      [6.75, 0, 4.75, 0],       // Panorama 7
+      [7, 0, 5, 0],       // Panorama 8
+      [8, 0, 6, 0],       // Panorama 9
+      [7, 0, 5, 0],       // Panorama 10
+      [9, 0, 7, 0],       // Panorama 11
+      [9, 0, 7, 0],       // Panorama 12
+      [7, 0, 5, 0],       // Panorama 13
+      [7, 0, 5, 0],       // Panorama 14
+      [6, 0, 4, 0],       // Panorama 15
+      [8, 0, 6, 0],       // Panorama 16
+      [7, 0, 5, 0],       // Panorama 17
+      [5, 0, 3, 0],       // Panorama 18
+      [0, 0, 3, 0]        // Panorama 19
     ];
     
     // Debug mode
@@ -460,6 +458,11 @@
     // VR navigation cooldown to prevent multiple selections
     let navigationCooldown = false;
     let cooldownTime = 1000; // 1 second cooldown between navigation actions
+    
+    // Store initial camera direction for consistent arrow placement
+    let initialCameraDirection = null;
+    let initialRightVector = null;
+    let initialUpVector = null;
     
     // ===== DEBUG FUNCTIONS =====
     function log(message, obj) {
@@ -966,6 +969,8 @@
         
         // Place the arrows at fixed positions in front of the user
         // This is called only once when entering VR
+        // MODIFIED: We'll store initial camera direction for consistent arrow placement
+        captureInitialCameraReference();
         positionFixedNavigationArrows();
         
         log('Arrow visibility updated: forward=' + forwardNavigator.visible + ', backward=' + backwardNavigator.visible);
@@ -981,61 +986,80 @@
       }
     }
     
-    // MODIFIED: Position navigation arrows with custom offsets for each panorama
+    // MODIFIED: Capture initial camera reference for consistent arrow placement
+    function captureInitialCameraReference() {
+      // This is called when first entering VR to capture the initial reference vectors
+      if (!initialCameraDirection) {
+        const cameraPosition = new THREE.Vector3();
+        camera.getWorldPosition(cameraPosition);
+        
+        // Get camera direction (where user is looking when entering VR)
+        initialCameraDirection = new THREE.Vector3(0, 0, -1);
+        initialCameraDirection.applyQuaternion(camera.quaternion);
+        
+        // Project direction onto xz-plane (ground)
+        initialCameraDirection.y = 0;
+        initialCameraDirection.normalize();
+        
+        // Store right vector (perpendicular to viewing direction on ground plane)
+        initialRightVector = new THREE.Vector3().crossVectors(initialCameraDirection, new THREE.Vector3(0, 1, 0)).normalize();
+        
+        // Store up vector (always vertical)
+        initialUpVector = new THREE.Vector3(0, 1, 0);
+        
+        log('Initial camera reference captured for consistent arrow placement');
+      }
+    }
+    
+    // MODIFIED: Position navigation arrows using the first point reference
     function positionFixedNavigationArrows() {
       if (!isVRMode || !forwardNavigator || !backwardNavigator) return;
       
-      // Get initial camera forward direction (where user is facing when entering VR)
+      // If initial camera reference is not captured yet, do it now
+      if (!initialCameraDirection) {
+        captureInitialCameraReference();
+      }
+      
+      // Get current camera position
       const cameraPosition = new THREE.Vector3();
       camera.getWorldPosition(cameraPosition);
       
-      const cameraDirection = new THREE.Vector3(0, 0, -1);
-      cameraDirection.applyQuaternion(camera.quaternion);
-      
-      // Project direction onto xz-plane (ground)
-      const groundDirection = new THREE.Vector3(cameraDirection.x, 0, cameraDirection.z).normalize();
-      
       // Set fixed distance from user
-      const distanceInFront = 5; // 5 meters in front as requested
+      const distanceInFront = 5; // 5 meters in front
       
-      // Calculate center position 5 meters in front on the ground
+      // Calculate center position 5 meters in front on the ground, using initial camera reference
       const centerPosition = new THREE.Vector3();
       centerPosition.copy(cameraPosition);
       centerPosition.y = 0.01; // Just above ground level
-      centerPosition.addScaledVector(groundDirection, distanceInFront);
+      centerPosition.addScaledVector(initialCameraDirection, distanceInFront);
       
-      // Get custom offsets for current panorama
-      const customOffsets = ARROW_CUSTOM_POSITIONS[currentPhotoIndex] || [0, 0, 0, 0];
-      const [forwardX, forwardY, backwardX, backwardY] = customOffsets;
+      // Get absolute offsets from the first reference point
+      const absoluteOffsets = ARROW_ABSOLUTE_POSITIONS[currentPhotoIndex] || ARROW_ABSOLUTE_POSITIONS[0];
+      const [forwardX, forwardY, backwardX, backwardY] = absoluteOffsets;
       
-      // Calculate positions for arrows using custom offsets
-      // Forward arrow position with custom X and Y offsets
+      // Calculate positions for arrows using absolute offsets from the first reference point
+      // Forward arrow position with absolute X and Y offsets
       const forwardPosition = new THREE.Vector3().copy(centerPosition);
-      // Apply offsets relative to camera direction
-      const rightVector = new THREE.Vector3().crossVectors(groundDirection, new THREE.Vector3(0, 1, 0)).normalize();
-      const upVector = new THREE.Vector3(0, 1, 0);
+      forwardPosition.addScaledVector(initialRightVector, forwardX);
+      forwardPosition.addScaledVector(initialUpVector, forwardY);
       
-      // Apply offsets to forward arrow
-      forwardPosition.addScaledVector(rightVector, forwardX);
-      forwardPosition.addScaledVector(upVector, forwardY);
-      
-      // Backward arrow position with custom X and Y offsets
+      // Backward arrow position with absolute X and Y offsets
       const backwardPosition = new THREE.Vector3().copy(centerPosition);
-      backwardPosition.addScaledVector(rightVector, backwardX);
-      backwardPosition.addScaledVector(upVector, backwardY);
+      backwardPosition.addScaledVector(initialRightVector, backwardX);
+      backwardPosition.addScaledVector(initialUpVector, backwardY);
       
       // Update positions
       forwardNavigator.position.copy(forwardPosition);
       backwardNavigator.position.copy(backwardPosition);
       
-      // Calculate the angle of the path direction in the xz plane
-      const pathAngle = Math.atan2(groundDirection.x, groundDirection.z);
+      // Calculate the angle based on initial camera direction for consistent orientation
+      const pathAngle = Math.atan2(initialCameraDirection.x, initialCameraDirection.z);
       
       // Set arrow rotations to face in the direction of travel (both along the path)
       forwardNavigator.rotation.set(0, pathAngle, 0);
       backwardNavigator.rotation.set(0, pathAngle, 0);
       
-      log(`Positioned arrows with custom offsets for panorama ${currentPhotoIndex}: forward(${forwardX}, ${forwardY}), backward(${backwardX}, ${backwardY})`);
+      log(`Positioned arrows with absolute offsets using first reference point. Panorama ${currentPhotoIndex}: forward(${forwardX}, ${forwardY}), backward(${backwardX}, ${backwardY})`);
     }
 
     // Handle VR controller select events
@@ -1251,7 +1275,7 @@
               forwardNavigator.visible = currentPhotoIndex < images.length - 1;
               backwardNavigator.visible = currentPhotoIndex > 0;
               
-              // MODIFIED: Update arrow positions with custom offsets when changing panoramas in VR
+              // MODIFIED: Use the same absolute positioning based on initial reference
               positionFixedNavigationArrows();
             }
           },
