@@ -20,7 +20,7 @@
       vrButtonScript.src = 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/webxr/VRButton.js';
       document.head.appendChild(vrButtonScript);
 
-       // Load XR Controller Model Factory - THIS IS THE MISSING PIECE
+      // Load XR Controller Model Factory
       const xrControllerScript = document.createElement('script');
       xrControllerScript.src = 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/webxr/XRControllerModelFactory.js';
       document.head.appendChild(xrControllerScript);
@@ -332,7 +332,7 @@
     <p>Use <span class="key">←</span> and <span class="key">→</span> arrows or buttons to navigate</p>
     <p>Drag to look around • Use mouse wheel to zoom</p>
     <p>Press <span class="key">VR</span> button to enter VR mode</p>
-    <p>In VR: Point controller at navigation circles to move</p>
+    <p>In VR: Point controller at ground arrows to navigate</p>
   </div>
   
   <!-- Info panel -->
@@ -627,11 +627,26 @@
       // Set up event handlers
       setupEventListeners();
       
+      // Update instructions for ground-based navigation
+      updateInstructions();
+      
       // Force close loading screen if it gets stuck
       forceCloseLoadingScreen();
       
       // Create thumbnails
       createThumbnails();
+    }
+
+    function updateInstructions() {
+      const instructions = document.getElementById('instructions');
+      if (instructions) {
+        instructions.innerHTML = `
+          <p>Use <span class="key">←</span> and <span class="key">→</span> arrows or buttons to navigate</p>
+          <p>Drag to look around • Use mouse wheel to zoom</p>
+          <p>Press <span class="key">VR</span> button to enter VR mode</p>
+          <p>In VR: Point controller at ground arrows to navigate</p>
+        `;
+      }
     }
 
     function initializeDebugPanel() {
@@ -797,8 +812,8 @@
         // Continue without controller models
       }
       
-      // Create navigation buttons for VR
-      createNavigationButtons();
+      // Create ground-based navigation arrows
+      createNavigationArrows();
       
       // Add line for controller pointing ray
       const geometry = new THREE.BufferGeometry().setFromPoints([
@@ -808,7 +823,7 @@
       
       const line = new THREE.Line(geometry);
       line.name = 'ray';
-      line.scale.z = 5;
+      line.scale.z = 10; // Make ray longer to reach ground
       
       controller1.add(line.clone());
       controller2.add(line.clone());
@@ -817,7 +832,7 @@
       renderer.xr.addEventListener('sessionstart', () => {
         log('VR session started');
         isVRMode = true;
-        showVRNavigationButtons();
+        showVRNavigationArrows();
         // Hide non-VR UI elements
         document.querySelectorAll('.nav-controls, .info-panel, .instructions, .thumbnail-preview').forEach(el => {
           el.style.display = 'none';
@@ -827,7 +842,7 @@
       renderer.xr.addEventListener('sessionend', () => {
         log('VR session ended');
         isVRMode = false;
-        hideVRNavigationButtons();
+        hideVRNavigationArrows();
         // Restore non-VR UI elements
         document.querySelectorAll('.nav-controls, .info-panel, .instructions, .thumbnail-preview').forEach(el => {
           el.style.display = '';
@@ -835,107 +850,101 @@
       });
     }
 
-    // Create navigation buttons for VR - completely redesigned for better UX
-    function createNavigationButtons() {
-      log('Creating navigation buttons for VR');
+    // Create ground-based navigation arrows for VR
+    function createNavigationArrows() {
+      log('Creating ground-based navigation arrows');
       
-      // === FORWARD BUTTON ===
-      // Create a group to hold all components of the forward button
+      // === FORWARD ARROW ===
       forwardNavigator = new THREE.Group();
       forwardNavigator.name = 'forwardNavigator';
-      forwardNavigator.userData.isNavigationButton = true;
+      forwardNavigator.userData.isNavigationArrow = true;
       forwardNavigator.userData.direction = 'forward';
       
-      // Create a circle for the container
-      const forwardCircleGeometry = new THREE.CircleGeometry(0.15, 32);
-      const forwardCircleMaterial = new THREE.MeshBasicMaterial({ 
-        color: 0xffffff,
-        transparent: true,
-        opacity: 0.3,
-        side: THREE.DoubleSide
-      });
-      const forwardCircle = new THREE.Mesh(forwardCircleGeometry, forwardCircleMaterial);
-      forwardNavigator.add(forwardCircle);
+      // Create arrow shape on ground - white chevron arrow pointing forward
+      const forwardArrowShape = new THREE.Shape();
+      // Starting from bottom center
+      forwardArrowShape.moveTo(0, -0.4);
+      // Right edge to top point
+      forwardArrowShape.lineTo(0.4, 0.4);
+      // Left edge back to start
+      forwardArrowShape.lineTo(-0.4, 0.4);
+      forwardArrowShape.lineTo(0, -0.4);
       
-      // Create a triangle for the forward arrow
-      const forwardArrowGeometry = new THREE.BufferGeometry();
-      const forwardArrowVertices = new Float32Array([
-        0.0,  0.06,  0.001,   // top
-        -0.06, -0.06,  0.001,   // bottom left
-        0.06, -0.06,  0.001    // bottom right
-      ]);
-      forwardArrowGeometry.setAttribute('position', new THREE.BufferAttribute(forwardArrowVertices, 3));
-      forwardArrowGeometry.computeVertexNormals();
+      const forwardArrowGeometry = new THREE.ShapeGeometry(forwardArrowShape);
+      // Rotate to lay flat on ground with point facing forward
+      forwardArrowGeometry.rotateX(-Math.PI / 2);
       
       const forwardArrowMaterial = new THREE.MeshBasicMaterial({ 
-        color: 0xffffff,
+        color: 0xFFFFFF,
         transparent: true,
-        opacity: 0.8
+        opacity: 0.8,
+        side: THREE.DoubleSide
       });
       
       const forwardArrow = new THREE.Mesh(forwardArrowGeometry, forwardArrowMaterial);
+      // Elevate slightly above ground to prevent z-fighting
+      forwardArrow.position.y = 0.01;
       forwardNavigator.add(forwardArrow);
       
-      // Add a thin border around the circle
-      const forwardRingGeometry = new THREE.RingGeometry(0.15, 0.155, 32);
-      const forwardRingMaterial = new THREE.MeshBasicMaterial({ 
-        color: 0xffffff, 
-        transparent: true,
-        opacity: 0.5,
-        side: THREE.DoubleSide
+      // Add outline/border to make it more visible
+      const forwardArrowOutlineGeometry = new THREE.EdgesGeometry(forwardArrowGeometry);
+      const forwardArrowOutlineMaterial = new THREE.LineBasicMaterial({ 
+        color: 0x000000,
+        linewidth: 2
       });
-      const forwardRing = new THREE.Mesh(forwardRingGeometry, forwardRingMaterial);
-      forwardRing.position.z = 0.0005; // Slightly in front of the circle
-      forwardNavigator.add(forwardRing);
+      const forwardArrowOutline = new THREE.LineSegments(
+        forwardArrowOutlineGeometry, 
+        forwardArrowOutlineMaterial
+      );
+      // Position slightly above the arrow to prevent z-fighting
+      forwardArrowOutline.position.y = 0.011;
+      forwardNavigator.add(forwardArrowOutline);
       
-      // === BACKWARD BUTTON ===
-      // Create a group to hold all components of the backward button
+      // === BACKWARD ARROW ===
       backwardNavigator = new THREE.Group();
       backwardNavigator.name = 'backwardNavigator';
-      backwardNavigator.userData.isNavigationButton = true;
+      backwardNavigator.userData.isNavigationArrow = true;
       backwardNavigator.userData.direction = 'backward';
       
-      // Create a circle for the container
-      const backwardCircleGeometry = new THREE.CircleGeometry(0.15, 32);
-      const backwardCircleMaterial = new THREE.MeshBasicMaterial({ 
-        color: 0xffffff,
-        transparent: true,
-        opacity: 0.3,
-        side: THREE.DoubleSide
-      });
-      const backwardCircle = new THREE.Mesh(backwardCircleGeometry, backwardCircleMaterial);
-      backwardNavigator.add(backwardCircle);
+      // Create arrow shape on ground - white chevron arrow pointing backward
+      const backwardArrowShape = new THREE.Shape();
+      // Starting from top center
+      backwardArrowShape.moveTo(0, 0.4);
+      // Right edge to bottom point
+      backwardArrowShape.lineTo(0.4, -0.4);
+      // Left edge back to start
+      backwardArrowShape.lineTo(-0.4, -0.4);
+      backwardArrowShape.lineTo(0, 0.4);
       
-      // Create a triangle for the backward arrow (pointing down)
-      const backwardArrowGeometry = new THREE.BufferGeometry();
-      const backwardArrowVertices = new Float32Array([
-        0.0, -0.06,  0.001,   // bottom
-        -0.06,  0.06,  0.001,   // top left
-        0.06,  0.06,  0.001    // top right
-      ]);
-      backwardArrowGeometry.setAttribute('position', new THREE.BufferAttribute(backwardArrowVertices, 3));
-      backwardArrowGeometry.computeVertexNormals();
+      const backwardArrowGeometry = new THREE.ShapeGeometry(backwardArrowShape);
+      // Rotate to lay flat on ground with point facing backward
+      backwardArrowGeometry.rotateX(-Math.PI / 2);
       
       const backwardArrowMaterial = new THREE.MeshBasicMaterial({ 
-        color: 0xffffff,
+        color: 0xFFFFFF,
         transparent: true,
-        opacity: 0.8
+        opacity: 0.8,
+        side: THREE.DoubleSide
       });
       
       const backwardArrow = new THREE.Mesh(backwardArrowGeometry, backwardArrowMaterial);
+      // Elevate slightly above ground to prevent z-fighting
+      backwardArrow.position.y = 0.01;
       backwardNavigator.add(backwardArrow);
       
-      // Add a thin border around the circle
-      const backwardRingGeometry = new THREE.RingGeometry(0.15, 0.155, 32);
-      const backwardRingMaterial = new THREE.MeshBasicMaterial({ 
-        color: 0xffffff, 
-        transparent: true,
-        opacity: 0.5,
-        side: THREE.DoubleSide
+      // Add outline/border
+      const backwardArrowOutlineGeometry = new THREE.EdgesGeometry(backwardArrowGeometry);
+      const backwardArrowOutlineMaterial = new THREE.LineBasicMaterial({ 
+        color: 0x000000,
+        linewidth: 2
       });
-      const backwardRing = new THREE.Mesh(backwardRingGeometry, backwardRingMaterial);
-      backwardRing.position.z = 0.0005; // Slightly in front of the circle
-      backwardNavigator.add(backwardRing);
+      const backwardArrowOutline = new THREE.LineSegments(
+        backwardArrowOutlineGeometry, 
+        backwardArrowOutlineMaterial
+      );
+      // Position slightly above the arrow to prevent z-fighting
+      backwardArrowOutline.position.y = 0.011;
+      backwardNavigator.add(backwardArrowOutline);
       
       // Add to scene but hide initially
       forwardNavigator.visible = false;
@@ -944,86 +953,83 @@
       scene.add(forwardNavigator);
       scene.add(backwardNavigator);
       
-      // Debug log to confirm buttons were created
-      log('Navigation buttons created: forward=' + forwardNavigator.uuid + ', backward=' + backwardNavigator.uuid);
+      log('Ground-based navigation arrows created');
     }
 
-    // Show/hide VR navigation buttons
-    function showVRNavigationButtons() {
-      log('Showing VR navigation buttons');
+    // Show/hide VR navigation arrows
+    function showVRNavigationArrows() {
+      log('Showing VR navigation ground arrows');
       
       if (forwardNavigator && backwardNavigator) {
-        // Only show forward button if not at the last panorama
+        // Only show forward arrow if not at the last panorama
         const images = USE_PLACEHOLDERS ? PLACEHOLDER_IMAGES : PANORAMA_IMAGES;
         forwardNavigator.visible = currentPhotoIndex < images.length - 1;
         backwardNavigator.visible = currentPhotoIndex > 0;
         
-        // Update button positions
-        updateNavigationButtonPositions();
+        // Update arrow positions
+        updateNavigationArrowPositions();
         
-        log('Button visibility updated: forward=' + forwardNavigator.visible + ', backward=' + backwardNavigator.visible);
+        log('Arrow visibility updated: forward=' + forwardNavigator.visible + ', backward=' + backwardNavigator.visible);
       } else {
-        error('Cannot show navigation buttons - they are not initialized');
+        error('Cannot show navigation arrows - they are not initialized');
       }
     }
 
-    function hideVRNavigationButtons() {
+    function hideVRNavigationArrows() {
       if (forwardNavigator && backwardNavigator) {
         forwardNavigator.visible = false;
         backwardNavigator.visible = false;
       }
     }
     
-    // Update navigation button positions - placing them in front of the user at waist level
-    function updateNavigationButtonPositions() {
+    // Update navigation arrow positions - placing them on the ground in front of and behind the user
+    function updateNavigationArrowPositions() {
       if (!isVRMode || !forwardNavigator || !backwardNavigator) return;
       
-      // Get camera position and direction
+      // Get camera position and forward direction
       const cameraPosition = new THREE.Vector3();
       camera.getWorldPosition(cameraPosition);
       
       const cameraDirection = new THREE.Vector3(0, 0, -1);
       cameraDirection.applyQuaternion(camera.quaternion);
       
-      // We want buttons to be positioned in front of the user at waist level
-      // Instead of placing them on the ground, we'll position them at around waist height
-      const waistLevelOffset = 0.8; // Approx 0.8 meters below eye level
+      // Project movement direction onto xz-plane (ignore y component for ground placement)
+      const groundDirection = new THREE.Vector3(cameraDirection.x, 0, cameraDirection.z).normalize();
       
-      // Set distance from user
-      const distanceFromUser = 1.2; // Closer than before (1.2 meters)
+      // Place arrows on the ground in front and behind the user
+      const distanceInFront = 3; // 3 meters in front 
+      const distanceBehind = 2;  // 2 meters behind
       
-      // Create a vector pointing in front of the user
-      const frontDirection = new THREE.Vector3(cameraDirection.x, 0, cameraDirection.z).normalize();
-      
-      // Position both buttons in front of the user but at different horizontal positions
+      // Calculate positions based on camera direction
       const forwardPosition = new THREE.Vector3();
       forwardPosition.copy(cameraPosition);
-      forwardPosition.y = cameraPosition.y - waistLevelOffset; // Place at waist level
-      forwardPosition.addScaledVector(frontDirection, distanceFromUser);
-      forwardPosition.x += 0.25; // Slightly to the right
+      forwardPosition.y = 0.01; // Just above ground level
+      forwardPosition.addScaledVector(groundDirection, distanceInFront);
       
       const backwardPosition = new THREE.Vector3();
       backwardPosition.copy(cameraPosition);
-      backwardPosition.y = cameraPosition.y - waistLevelOffset; // Place at waist level
-      backwardPosition.addScaledVector(frontDirection, distanceFromUser);
-      backwardPosition.x -= 0.25; // Slightly to the left
+      backwardPosition.y = 0.01; // Just above ground level
+      backwardPosition.addScaledVector(groundDirection, -distanceBehind);
       
-      // Update button positions
+      // Update positions
       forwardNavigator.position.copy(forwardPosition);
       backwardNavigator.position.copy(backwardPosition);
       
-      // Make buttons always face the user - we don't want to rotate them to lay flat
-      forwardNavigator.lookAt(new THREE.Vector3(
-        cameraPosition.x,
-        forwardNavigator.position.y, // Look at camera but stay at same height
-        cameraPosition.z
-      ));
+      // Calculate rotation to face in the direction of travel
+      // Get the angle in the xz plane
+      const forwardAngle = Math.atan2(groundDirection.x, groundDirection.z);
+      const backwardAngle = Math.atan2(-groundDirection.x, -groundDirection.z);
       
-      backwardNavigator.lookAt(new THREE.Vector3(
-        cameraPosition.x,
-        backwardNavigator.position.y, // Look at camera but stay at same height
-        cameraPosition.z
-      ));
+      // Set arrow rotation to align with direction of travel
+      forwardNavigator.rotation.set(0, forwardAngle, 0);
+      backwardNavigator.rotation.set(0, backwardAngle, 0);
+      
+      // Add slight pulsing effect to make arrows more noticeable
+      const time = performance.now() * 0.001; // Convert to seconds
+      const pulseAmount = Math.sin(time * 2) * 0.1 + 0.9; // Pulse between 0.8 and 1.0 scale
+      
+      forwardNavigator.scale.set(pulseAmount, 1, pulseAmount);
+      backwardNavigator.scale.set(pulseAmount, 1, pulseAmount);
     }
 
     // Handle VR controller select events
@@ -1032,7 +1038,7 @@
       
       const controller = event.target;
       
-      // Check for intersections with navigation buttons
+      // Check for intersections with navigation arrows
       handleControllerIntersection(controller);
     }
 
@@ -1041,6 +1047,7 @@
       intersected = null;
     }
 
+    // Updated controller intersection handler for ground arrows
     function handleControllerIntersection(controller) {
       if (!isVRMode || navigationCooldown) return;
       
@@ -1051,7 +1058,7 @@
       raycaster.ray.origin.setFromMatrixPosition(controller.matrixWorld);
       raycaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
       
-      // Check intersection with navigation buttons
+      // Check intersection with navigation arrows
       const intersects = raycaster.intersectObjects([
         ...forwardNavigator.children, 
         ...backwardNavigator.children
@@ -1060,48 +1067,34 @@
       if (intersects.length > 0) {
         // Find the parent group that has navigation data
         let targetObject = intersects[0].object;
-        while (targetObject && !targetObject.userData.isNavigationButton) {
+        while (targetObject && !targetObject.parent.userData.isNavigationArrow) {
           targetObject = targetObject.parent;
         }
         
-        // If we found a navigation button, use it
-        if (targetObject && targetObject.userData.isNavigationButton) {
-          intersected = targetObject;
+        // If we found a navigation arrow, use it
+        if (targetObject && targetObject.parent.userData.isNavigationArrow) {
+          intersected = targetObject.parent;
           
           // Set navigation cooldown to prevent continuous navigation
           navigationCooldown = true;
           
-          // Visual feedback - increase opacity
-          targetObject.children.forEach(child => {
-            if (child.material) {
-              child.material.opacity += 0.2;
-            }
-          });
+          // Visual feedback - pulse the arrow
+          const originalScale = targetObject.parent.scale.x;
+          targetObject.parent.scale.set(1.5, 1, 1.5);
           
           // Navigate based on direction
-          if (targetObject.userData.direction === 'forward') {
-            log('Forward button selected - navigating next');
+          if (targetObject.parent.userData.direction === 'forward') {
+            log('Forward arrow selected - navigating next');
             navigateNext();
-          } else if (targetObject.userData.direction === 'backward') {
-            log('Backward button selected - navigating previous');
+          } else if (targetObject.parent.userData.direction === 'backward') {
+            log('Backward arrow selected - navigating previous');
             navigatePrev();
           }
           
-          // Reset visual feedback and cooldown after delay
+          // Reset cooldown after delay
           setTimeout(() => {
-            if (targetObject) {
-              targetObject.children.forEach(child => {
-                if (child.material) {
-                  // Reset opacity based on object type
-                  if (child.geometry instanceof THREE.CircleGeometry) {
-                    child.material.opacity = 0.3;
-                  } else if (child.geometry instanceof THREE.RingGeometry) {
-                    child.material.opacity = 0.5;
-                  } else {
-                    child.material.opacity = 0.8;
-                  }
-                }
-              });
+            if (targetObject && targetObject.parent) {
+              targetObject.parent.scale.set(originalScale, 1, originalScale);
             }
             navigationCooldown = false;
             log('Navigation cooldown ended');
@@ -1117,15 +1110,85 @@
       renderer.setSize(window.innerWidth, window.innerHeight);
     }
 
+    // Check for controller hover to highlight ground arrows
+    function checkControllerHover(controller) {
+      if (!isVRMode) return;
+      
+      // Create a temp vector to store controller direction
+      const tempMatrix = new THREE.Matrix4();
+      tempMatrix.identity().extractRotation(controller.matrixWorld);
+      
+      raycaster.ray.origin.setFromMatrixPosition(controller.matrixWorld);
+      raycaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
+      
+      // Check intersection with all parts of the navigation arrows
+      const intersects = raycaster.intersectObjects([
+        ...forwardNavigator.children, 
+        ...backwardNavigator.children
+      ]);
+      
+      // Reset all arrow opacities and scales
+      if (forwardNavigator) {
+        forwardNavigator.children.forEach(child => {
+          if (child.material) {
+            if (child instanceof THREE.Mesh) {
+              child.material.opacity = 0.8;
+            }
+          }
+        });
+        // Reset scale to base pulse amount
+        const time = performance.now() * 0.001;
+        const pulseAmount = Math.sin(time * 2) * 0.1 + 0.9;
+        forwardNavigator.scale.set(pulseAmount, 1, pulseAmount);
+      }
+      
+      if (backwardNavigator) {
+        backwardNavigator.children.forEach(child => {
+          if (child.material) {
+            if (child instanceof THREE.Mesh) {
+              child.material.opacity = 0.8;
+            }
+          }
+        });
+        // Reset scale to base pulse amount
+        const time = performance.now() * 0.001;
+        const pulseAmount = Math.sin(time * 2) * 0.1 + 0.9;
+        backwardNavigator.scale.set(pulseAmount, 1, pulseAmount);
+      }
+      
+      // Apply hover effect to intersected arrow
+      if (intersects.length > 0) {
+        // Find the parent group that has navigation data
+        let targetObject = intersects[0].object;
+        while (targetObject && !targetObject.parent.userData.isNavigationArrow) {
+          targetObject = targetObject.parent;
+        }
+        
+        if (targetObject && targetObject.parent.userData.isNavigationArrow) {
+          // Hover effect - increase opacity and scale
+          targetObject.parent.children.forEach(child => {
+            if (child.material) {
+              if (child instanceof THREE.Mesh) {
+                child.material.opacity = 1.0;
+              }
+            }
+          });
+          
+          // Make arrow larger on hover
+          targetObject.parent.scale.set(1.2, 1, 1.2);
+        }
+      }
+    }
+
     // Animation loop
     function animate() {
       if (controls) {
         controls.update(); // Required for damping
       }
       
-      // In VR, update button positions to follow camera
+      // In VR, update arrow positions to follow camera
       if (isVRMode) {
-        updateNavigationButtonPositions();
+        updateNavigationArrowPositions();
         
         // Check for controller intersections continuously
         // This provides visual feedback but not navigation (until select is pressed)
@@ -1138,69 +1201,6 @@
       }
       
       renderer.render(scene, camera);
-    }
-    
-    // Check for controller hover over navigation buttons (for visual feedback)
-    function checkControllerHover(controller) {
-      // Create a temp vector to store controller direction
-      const tempMatrix = new THREE.Matrix4();
-      tempMatrix.identity().extractRotation(controller.matrixWorld);
-      
-      raycaster.ray.origin.setFromMatrixPosition(controller.matrixWorld);
-      raycaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
-      
-      // Check intersection with all parts of the navigation buttons
-      const intersects = raycaster.intersectObjects([
-        ...forwardNavigator.children, 
-        ...backwardNavigator.children
-      ]);
-      
-      // Reset hover states - restore default opacities
-      forwardNavigator.children.forEach(child => {
-        if (child.material) {
-          if (child.geometry instanceof THREE.CircleGeometry) {
-            child.material.opacity = 0.3;
-          } else if (child.geometry instanceof THREE.RingGeometry) {
-            child.material.opacity = 0.5;
-          } else {
-            child.material.opacity = 0.8;
-          }
-        }
-      });
-      
-      backwardNavigator.children.forEach(child => {
-        if (child.material) {
-          if (child.geometry instanceof THREE.CircleGeometry) {
-            child.material.opacity = 0.3;
-          } else if (child.geometry instanceof THREE.RingGeometry) {
-            child.material.opacity = 0.5;
-          } else {
-            child.material.opacity = 0.8;
-          }
-        }
-      });
-      
-      // Apply hover effect
-      if (intersects.length > 0) {
-        // Find the parent group that has navigation data
-        let targetObject = intersects[0].object;
-        let parentGroup = null;
-        
-        while (targetObject && !targetObject.userData.isNavigationButton) {
-          targetObject = targetObject.parent;
-        }
-        
-        if (targetObject && targetObject.userData.isNavigationButton) {
-          parentGroup = targetObject;
-          
-          // Increase opacity of all children for hover effect
-          parentGroup.children.forEach(child => {
-            if (child.material) {
-              child.material.opacity += 0.2;
-            }
-          });
-        }
-      }
     }
 
     // Load panorama by index
@@ -1251,9 +1251,9 @@
             // Update thumbnails to show current active panorama
             updateActiveThumbnail(index);
             
-            // Update VR navigation buttons visibility
+            // Update VR navigation arrows visibility
             if (isVRMode) {
-              showVRNavigationButtons();
+              showVRNavigationArrows();
             }
           },
           
@@ -1437,7 +1437,6 @@
     }
 
     // Fallback VR components factory
-    // This is a fallback implementation if the original modules fail to load
     function createFallbackVRComponents() {
       log('Creating fallback VR Button implementation');
       
@@ -1518,22 +1517,6 @@
       };
       
       log('Fallback VR Button created');
-      
-      // Mock the XRControllerModelFactory if it doesn't exist
-      if (!('XRControllerModelFactory' in THREE)) {
-        log('Creating fallback XRControllerModelFactory');
-        
-        THREE.XRControllerModelFactory = function() {
-          return {
-            createControllerModel: function() {
-              // Create a simple controller model (blue cylinder)
-              const geometry = new THREE.CylinderGeometry(0.01, 0.02, 0.08, 16);
-              const material = new THREE.MeshBasicMaterial({ color: 0x0055ff });
-              return new THREE.Mesh(geometry, material);
-            }
-          };
-        };
-      }
     }
 
     function createFallbackXRControllers() {
