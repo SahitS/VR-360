@@ -332,7 +332,7 @@
     <p>Use <span class="key">←</span> and <span class="key">→</span> arrows or buttons to navigate</p>
     <p>Drag to look around • Use mouse wheel to zoom</p>
     <p>Press <span class="key">VR</span> button to enter VR mode</p>
-    <p>In VR: Point controller at triangles to navigate</p>
+    <p>In VR: Point controller at triangles on floor to navigate</p>
   </div>
   
   <!-- Info panel -->
@@ -429,6 +429,9 @@
     let raycaster, intersected;
     let forwardTriangle, backwardTriangle;
     let isVRMode = false;
+    // VR navigation cooldown to prevent multiple selections
+    let navigationCooldown = false;
+    let cooldownTime = 1000; // 1 second cooldown between navigation actions
     
     // ===== DEBUG FUNCTIONS =====
     function log(message, obj) {
@@ -836,12 +839,12 @@
     function createNavigationTriangles() {
       log('Creating navigation triangles for VR');
       
-      // Create triangle geometry for forward navigation
+      // Create larger, more visible triangle geometry for forward navigation
       const forwardGeometry = new THREE.BufferGeometry();
       const forwardVertices = new Float32Array([
-        0.0,  0.1,  0.0,   // top
-        -0.1, -0.1,  0.0,   // bottom left
-        0.1, -0.1,  0.0    // bottom right
+        0.0,  0.2,  0.0,   // top
+        -0.2, -0.2,  0.0,   // bottom left
+        0.2, -0.2,  0.0    // bottom right
       ]);
       forwardGeometry.setAttribute('position', new THREE.BufferAttribute(forwardVertices, 3));
       forwardGeometry.computeVertexNormals();
@@ -849,52 +852,46 @@
       // Create triangle geometry for backward navigation
       const backwardGeometry = new THREE.BufferGeometry();
       const backwardVertices = new Float32Array([
-        0.0, -0.1,  0.0,   // bottom
-        -0.1,  0.1,  0.0,   // top left
-        0.1,  0.1,  0.0    // top right
+        0.0, -0.2,  0.0,   // bottom
+        -0.2,  0.2,  0.0,   // top left
+        0.2,  0.2,  0.0    // top right
       ]);
       backwardGeometry.setAttribute('position', new THREE.BufferAttribute(backwardVertices, 3));
       backwardGeometry.computeVertexNormals();
       
-      // Create materials for triangles - MAKE THEM MORE VISIBLE
+      // Create materials for triangles with improved visibility
       const forwardMaterial = new THREE.MeshBasicMaterial({ 
-        color: 0x00ff00, // Bright green is more visible
+        color: 0x00ff00, // Bright green
         side: THREE.DoubleSide,
         transparent: true,
-        opacity: 1.0, // Full opacity
-        emissive: 0x00ff00, // Add emissive for better visibility
-        emissiveIntensity: 0.5
+        opacity: 0.8, 
+        emissive: 0x00ff00,
+        emissiveIntensity: 0.7
       });
       
       const backwardMaterial = new THREE.MeshBasicMaterial({ 
-        color: 0xff0000, // Bright red is more visible
+        color: 0xff0000, // Bright red
         side: THREE.DoubleSide, 
         transparent: true,
-        opacity: 1.0, // Full opacity
-        emissive: 0xff0000, // Add emissive for better visibility
-        emissiveIntensity: 0.5
+        opacity: 0.8,
+        emissive: 0xff0000,
+        emissiveIntensity: 0.7
       });
       
       // Create triangle meshes
       forwardTriangle = new THREE.Mesh(forwardGeometry, forwardMaterial);
       forwardTriangle.name = 'forwardTriangle';
-      forwardTriangle.position.set(0, 0, -2); // Position closer to user (was -2)
-      forwardTriangle.position.y = 0;      // Position higher (was -0.5)
-      forwardTriangle.position.x = 0.5;       // Position more to the right
-      forwardTriangle.scale.set(0.8, 0.8, 0.8); // Scale larger (was 0.2)
+      // Position will be updated in updateNavigationTriangles()
       forwardTriangle.userData.isNavigationTriangle = true;
       forwardTriangle.userData.direction = 'forward';
       
       backwardTriangle = new THREE.Mesh(backwardGeometry, backwardMaterial);
       backwardTriangle.name = 'backwardTriangle';
-      backwardTriangle.position.set(0, 0, -2); // Position closer to user (was -2)
-      backwardTriangle.position.y = 0;      // Position higher (was -0.5)
-      backwardTriangle.position.x = -0.5;      // Position to the left
-      backwardTriangle.scale.set(0.8, 0.8, 0.8); // Scale larger (was 0.2)
+      // Position will be updated in updateNavigationTriangles()
       backwardTriangle.userData.isNavigationTriangle = true;
       backwardTriangle.userData.direction = 'backward';
       
-      // Add directly to scene but hide initially
+      // Add to scene but hide initially
       forwardTriangle.visible = false;
       backwardTriangle.visible = false;
       
@@ -907,7 +904,7 @@
 
     // Show/hide VR navigation triangles
     function showVRNavigationTriangles() {
-      log('Attempting to show VR navigation triangles');
+      log('Showing VR navigation triangles');
       
       if (forwardTriangle && backwardTriangle) {
         // Only show forward triangle if not at the last panorama
@@ -915,21 +912,10 @@
         forwardTriangle.visible = currentPhotoIndex < images.length - 1;
         backwardTriangle.visible = currentPhotoIndex > 0;
         
+        // Update triangle positions based on current camera
+        updateNavigationTriangles();
+        
         log('Triangle visibility updated: forward=' + forwardTriangle.visible + ', backward=' + backwardTriangle.visible);
-        
-        // Add debug spheres to verify positioning
-        // const sphereGeometry = new THREE.SphereGeometry(0.05, 16, 16);
-        // const sphereMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00 });
-        
-        // const forwardSphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
-        // forwardSphere.position.copy(forwardTriangle.position);
-        // scene.add(forwardSphere);
-        
-        // const backwardSphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
-        // backwardSphere.position.copy(backwardTriangle.position);
-        // scene.add(backwardSphere);
-        
-        // log('Debug spheres added at triangle positions');
       } else {
         error('Cannot show triangles - they are not initialized');
       }
@@ -941,9 +927,74 @@
         backwardTriangle.visible = false;
       }
     }
+    
+    // Update navigation triangle positions for better placement on the "floor"
+    function updateNavigationTriangles() {
+      if (!isVRMode || !forwardTriangle || !backwardTriangle) return;
+      
+      // Get camera position and direction
+      const cameraPosition = new THREE.Vector3();
+      camera.getWorldPosition(cameraPosition);
+      
+      const cameraDirection = new THREE.Vector3(0, 0, -1);
+      cameraDirection.applyQuaternion(camera.quaternion);
+      
+      // Calculate the forward position (in front of user)
+      const forwardPosition = new THREE.Vector3();
+      forwardPosition.copy(cameraPosition);
+      
+      // We want triangles to be positioned on the "ground"
+      // Assuming the ground is 1.6 meters below eye level
+      const floorOffset = 1.6;
+      
+      // Forward triangle - directly in front
+      const forwardDistance = 2.5; // 2.5 meters in front
+      forwardPosition.addScaledVector(cameraDirection, forwardDistance);
+      forwardPosition.y = cameraPosition.y - floorOffset; // Place on floor
+      
+      // Backward triangle - behind
+      const backwardPosition = new THREE.Vector3();
+      backwardPosition.copy(cameraPosition);
+      const backwardDirection = cameraDirection.clone().negate();
+      const backwardDistance = 2.5; // 2.5 meters behind
+      backwardPosition.addScaledVector(backwardDirection, backwardDistance);
+      backwardPosition.y = cameraPosition.y - floorOffset; // Place on floor
+      
+      // Update triangle positions
+      forwardTriangle.position.copy(forwardPosition);
+      backwardTriangle.position.copy(backwardPosition);
+      
+      // Make triangles face the user
+      forwardTriangle.lookAt(new THREE.Vector3(
+        cameraPosition.x,
+        forwardTriangle.position.y, // Look at camera but stay at same height
+        cameraPosition.z
+      ));
+      backwardTriangle.lookAt(new THREE.Vector3(
+        cameraPosition.x,
+        backwardTriangle.position.y, // Look at camera but stay at same height
+        cameraPosition.z
+      ));
+      
+      // Rotate triangles to lay flat on the ground but be visible from above
+      forwardTriangle.rotation.x = -Math.PI / 2;
+      backwardTriangle.rotation.x = -Math.PI / 2;
+      
+      // Keep the rotation about the y-axis to face the user
+      forwardTriangle.rotation.y = Math.atan2(
+        forwardTriangle.position.x - cameraPosition.x,
+        forwardTriangle.position.z - cameraPosition.z
+      );
+      backwardTriangle.rotation.y = Math.atan2(
+        backwardTriangle.position.x - cameraPosition.x,
+        backwardTriangle.position.z - cameraPosition.z
+      );
+    }
 
     // Handle VR controller select events
     function onSelectStart(event) {
+      if (navigationCooldown) return; // Skip if in cooldown period
+      
       const controller = event.target;
       
       // Check for intersections with navigation triangles
@@ -956,7 +1007,7 @@
     }
 
     function handleControllerIntersection(controller) {
-      if (!isVRMode) return;
+      if (!isVRMode || navigationCooldown) return;
       
       // Create a temp vector to store controller direction
       const tempMatrix = new THREE.Matrix4();
@@ -972,12 +1023,30 @@
         intersected = intersects[0].object;
         
         if (intersected.userData.isNavigationTriangle) {
-          // Navigate based on direction
+          // Set navigation cooldown to prevent continuous navigation
+          navigationCooldown = true;
+          
+          // Visual feedback - flash the triangle
+          const originalOpacity = intersected.material.opacity;
+          intersected.material.opacity = 1.0;
+          
+          // Navigate based on direction - Single step like the web version!
           if (intersected.userData.direction === 'forward') {
+            log('Forward triangle selected - navigating next');
             navigateNext();
           } else if (intersected.userData.direction === 'backward') {
+            log('Backward triangle selected - navigating previous');
             navigatePrev();
           }
+          
+          // Reset visual feedback and cooldown after delay
+          setTimeout(() => {
+            if (intersected) {
+              intersected.material.opacity = originalOpacity;
+            }
+            navigationCooldown = false;
+            log('Navigation cooldown ended');
+          }, cooldownTime);
         }
       }
     }
@@ -995,38 +1064,44 @@
         controls.update(); // Required for damping
       }
       
-      // In VR, update triangle positions to follow camera direction
+      // In VR, update triangle positions to follow camera
       if (isVRMode) {
-        if (forwardTriangle && backwardTriangle) {
-          // Get camera direction
-          const cameraDirection = new THREE.Vector3(0, 0, -1);
-          cameraDirection.applyQuaternion(camera.quaternion);
-          
-          // Position triangles in front of user, but at a fixed distance
-          const triangleDistance = -3; // 3 meters in front (was -1)
-          
-          // Forward triangle position
-          forwardTriangle.position.copy(camera.position);
-          forwardTriangle.position.addScaledVector(cameraDirection, triangleDistance);
-          forwardTriangle.position.y = camera.position.y; // At eye level (was -= 0.3)
-          forwardTriangle.position.x += 0.7; // More to the right (was 0.3)
-          
-          // Make triangle face the user
-          forwardTriangle.quaternion.copy(camera.quaternion);
-          
-          // Backward triangle position
-          backwardTriangle.position.copy(camera.position);
-          backwardTriangle.position.addScaledVector(cameraDirection, triangleDistance);
-          backwardTriangle.position.y = camera.position.y; // At eye level (was -= 0.3)
-          backwardTriangle.position.x -= 0.7; // More to the left (was -0.3)
-          
-          // Check for controller intersections
-          if (controller1) handleControllerIntersection(controller1);
-          if (controller2) handleControllerIntersection(controller2);
+        updateNavigationTriangles();
+        
+        // Check for controller intersections continuously
+        // This provides visual feedback but not navigation (until select is pressed)
+        if (controller1 && !navigationCooldown) {
+          checkControllerHover(controller1);
+        }
+        if (controller2 && !navigationCooldown) {
+          checkControllerHover(controller2);
         }
       }
       
       renderer.render(scene, camera);
+    }
+    
+    // Check for controller hover over navigation triangles (for visual feedback)
+    function checkControllerHover(controller) {
+      // Create a temp vector to store controller direction
+      const tempMatrix = new THREE.Matrix4();
+      tempMatrix.identity().extractRotation(controller.matrixWorld);
+      
+      raycaster.ray.origin.setFromMatrixPosition(controller.matrixWorld);
+      raycaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
+      
+      // Check intersection with navigation triangles
+      const intersects = raycaster.intersectObjects([forwardTriangle, backwardTriangle]);
+      
+      // Reset hover states
+      if (forwardTriangle) forwardTriangle.material.opacity = 0.8;
+      if (backwardTriangle) backwardTriangle.material.opacity = 0.8;
+      
+      // Apply hover effect
+      if (intersects.length > 0) {
+        const hovered = intersects[0].object;
+        hovered.material.opacity = 1.0; // Full opacity on hover
+      }
     }
 
     // Load panorama by index
