@@ -1009,8 +1009,7 @@
       }
     }
     
-    // MODIFIED: Fixed positioning and rotation of navigation arrows
-    // MODIFIED: Fixed positioning and rotation of navigation arrows
+    // MODIFIED: Fixed positioning with NO rotation at all
     function positionFixedNavigationArrows() {
       if (!isVRMode || !forwardNavigator || !backwardNavigator) return;
       
@@ -1051,17 +1050,10 @@
       forwardNavigator.position.copy(forwardPosition);
       backwardNavigator.position.copy(backwardPosition);
       
-      // FIX: Keep arrows flat on ground with no tilt but correct orientation
-      // Reset all rotations to default (flat on ground)
+      // FIXED: Set all rotations to zero to keep arrows completely straight
+      // No rotation at all - fixed orientation
       forwardNavigator.rotation.set(0, 0, 0);
       backwardNavigator.rotation.set(0, 0, 0);
-      
-      // Just orient them correctly based on their direction
-      // Forward arrow points in forward direction
-      forwardNavigator.rotation.y = Math.atan2(initialCameraDirection.x, initialCameraDirection.z);
-      
-      // Backward arrow points in backward direction
-      backwardNavigator.rotation.y = Math.atan2(initialCameraDirection.x, initialCameraDirection.z) + Math.PI;
       
       log(`Positioned arrows with absolute offsets using first reference point. Panorama ${currentPhotoIndex}: forward(${forwardX}, ${forwardY}), backward(${backwardX}, ${backwardY})`);
     }
