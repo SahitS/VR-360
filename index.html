@@ -882,6 +882,7 @@
     }
 
     // Create fixed ground-based navigation arrows for VR
+    // Fix for the arrow direction issue in createFixedNavigationArrows function
     function createFixedNavigationArrows() {
       log('Creating fixed ground-based navigation arrows');
       
@@ -891,18 +892,17 @@
       forwardNavigator.userData.isNavigationArrow = true;
       forwardNavigator.userData.direction = 'forward';
       
-      // Create arrow shape on ground that resembles Google Street View arrow
+      // Create arrow shape on ground pointing FORWARD
       const forwardArrowShape = new THREE.Shape();
-      // Draw a chevron pointing forward (north)
-      forwardArrowShape.moveTo(0, 0.25);  // top point
-      forwardArrowShape.lineTo(0.2, 0.15); // right point
-      forwardArrowShape.lineTo(0, 0.05);  // middle bottom indent
-      forwardArrowShape.lineTo(-0.2, 0.15); // left point
-      forwardArrowShape.lineTo(0, -0.25);  // back to top
+      forwardArrowShape.moveTo(0, 0.25);    // Top point
+      forwardArrowShape.lineTo(-0.2, -0.15); // Left point
+      forwardArrowShape.lineTo(0, -0.05);   // Middle indent
+      forwardArrowShape.lineTo(0.2, -0.15); // Right point
+      forwardArrowShape.lineTo(0, 0.25);    // Back to top
       
       const forwardArrowGeometry = new THREE.ShapeGeometry(forwardArrowShape);
       // Rotate to lay flat on ground
-      //forwardArrowGeometry.rotateX(-Math.PI / 2);
+      forwardArrowGeometry.rotateX(-Math.PI / 2);
       
       const forwardArrowMaterial = new THREE.MeshBasicMaterial({ 
         color: 0xFFFFFF,
@@ -922,18 +922,17 @@
       backwardNavigator.userData.isNavigationArrow = true;
       backwardNavigator.userData.direction = 'backward';
       
-      // Create arrow shape on ground that resembles Google Street View arrow
+      // Create arrow shape on ground pointing BACKWARD
       const backwardArrowShape = new THREE.Shape();
-      // Draw a chevron pointing backward (south)
-      backwardArrowShape.moveTo(0, -0.25);  // bottom point
-      backwardArrowShape.lineTo(0.2, -0.15); // right point
-      backwardArrowShape.lineTo(0, -0.05);   // middle top indent
-      backwardArrowShape.lineTo(-0.2, -0.15); // left point
-      backwardArrowShape.lineTo(0, 0.25);  // back to bottom
+      backwardArrowShape.moveTo(0, -0.25);   // Bottom point
+      backwardArrowShape.lineTo(-0.2, 0.15); // Left point
+      backwardArrowShape.lineTo(0, 0.05);    // Middle indent
+      backwardArrowShape.lineTo(0.2, 0.15);  // Right point
+      backwardArrowShape.lineTo(0, -0.25);   // Back to bottom
       
       const backwardArrowGeometry = new THREE.ShapeGeometry(backwardArrowShape);
       // Rotate to lay flat on ground
-      //backwardArrowGeometry.rotateX(-Math.PI / 2);
+      backwardArrowGeometry.rotateX(-Math.PI / 2);
       
       const backwardArrowMaterial = new THREE.MeshBasicMaterial({ 
         color: 0xFFFFFF,
@@ -1010,6 +1009,7 @@
     }
     
     // MODIFIED: Fixed positioning and rotation of navigation arrows
+    // Fix for the arrow positioning and rotation in positionFixedNavigationArrows function
     function positionFixedNavigationArrows() {
       if (!isVRMode || !forwardNavigator || !backwardNavigator) return;
       
@@ -1050,23 +1050,12 @@
       forwardNavigator.position.copy(forwardPosition);
       backwardNavigator.position.copy(backwardPosition);
       
-      // FIX: Set correct fixed rotations for arrows
-      // We'll use the initial camera direction as our reference, but ensure arrows point in correct directions
+      // FIXED: Ensure the arrows maintain correct orientation
+      // Don't adjust the orientation of the arrow shapes themselves
+      // The arrow meshes have already been created correctly, just place them at the right spots
       
-      // Create a reference direction for the north/forward direction
-      const northDir = new THREE.Vector3(0, 0, -1); // Forward in Three.js is -Z by default
-      
-      // Forward arrow should point forward
-      forwardNavigator.lookAt(forwardPosition.clone().add(northDir));
-      // Override Y rotation only - keep arrow flat on ground
-      forwardNavigator.rotation.x = -Math.PI/2; // Flat on ground
-      forwardNavigator.rotation.z = 0;          // No roll
-      
-      // Backward arrow should point backward
-      backwardNavigator.lookAt(backwardPosition.clone().add(northDir.clone().negate()));
-      // Override Y rotation only - keep arrow flat on ground
-      backwardNavigator.rotation.x = -Math.PI/2; // Flat on ground
-      backwardNavigator.rotation.z = 0;          // No roll
+      // Don't adjust the rotation at all - just rely on the correct shape definition
+      // The shape was designed to look correct when laid flat on the ground
       
       log(`Positioned arrows with absolute offsets using first reference point. Panorama ${currentPhotoIndex}: forward(${forwardX}, ${forwardY}), backward(${backwardX}, ${backwardY})`);
     }
