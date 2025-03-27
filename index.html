@@ -913,6 +913,7 @@
       
       const forwardArrow = new THREE.Mesh(forwardArrowGeometry, forwardArrowMaterial);
       // Elevate slightly above ground to prevent z-fighting
+      forwardArrow.scale.set(2, 2, 2);
       forwardArrow.position.y = 0.01;
       forwardNavigator.add(forwardArrow);
       
@@ -943,6 +944,7 @@
       });
       
       const backwardArrow = new THREE.Mesh(backwardArrowGeometry, backwardArrowMaterial);
+      backwardArrow.scale.set(2, 2, 2);
       // Elevate slightly above ground to prevent z-fighting
       backwardArrow.position.y = 0.01;
       backwardNavigator.add(backwardArrow);
@@ -1010,7 +1012,6 @@
     }
     
     // MODIFIED: Fixed positioning and rotation of navigation arrows
-    // MODIFIED: Fixed positioning and rotation of navigation arrows
     function positionFixedNavigationArrows() {
       if (!isVRMode || !forwardNavigator || !backwardNavigator) return;
       
@@ -1051,17 +1052,23 @@
       forwardNavigator.position.copy(forwardPosition);
       backwardNavigator.position.copy(backwardPosition);
       
-      // FIX: Keep arrows flat on ground with no tilt but correct orientation
-      // Reset all rotations to default (flat on ground)
-      forwardNavigator.rotation.set(0, 0, 0);
-      backwardNavigator.rotation.set(0, 0, 0);
+      // FIX: Set correct fixed rotations for arrows
+      // We'll use the initial camera direction as our reference, but ensure arrows point in correct directions
       
-      // Just orient them correctly based on their direction
-      // Forward arrow points in forward direction
-      forwardNavigator.rotation.y = Math.atan2(initialCameraDirection.x, initialCameraDirection.z);
+      // Create a reference direction for the north/forward direction
+      const northDir = new THREE.Vector3(0, 0, -1); // Forward in Three.js is -Z by default
       
-      // Backward arrow points in backward direction
-      backwardNavigator.rotation.y = Math.atan2(initialCameraDirection.x, initialCameraDirection.z) + Math.PI;
+      // Forward arrow should point forward
+      forwardNavigator.lookAt(forwardPosition.clone().add(northDir));
+      // Override Y rotation only - keep arrow flat on ground
+      forwardNavigator.rotation.x = -Math.PI/2; // Flat on ground
+      forwardNavigator.rotation.z = 0;          // No roll
+      
+      // Backward arrow should point backward
+      backwardNavigator.lookAt(backwardPosition.clone().add(northDir.clone().negate()));
+      // Override Y rotation only - keep arrow flat on ground
+      backwardNavigator.rotation.x = -Math.PI/2; // Flat on ground
+      backwardNavigator.rotation.z = 0;          // No roll
       
       log(`Positioned arrows with absolute offsets using first reference point. Panorama ${currentPhotoIndex}: forward(${forwardX}, ${forwardY}), backward(${backwardX}, ${backwardY})`);
     }
