@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html>
 <head>
@@ -57,6 +58,7 @@
         createFallbackXRControllers();
         checkInitialize();
       };
+
     });
   </script>
   <style>
@@ -407,150 +409,6 @@
       { latitude: 6.602804918397261, longitude: 2.2539618537904373 },
       { latitude: 6.60274820990419, longitude: 2.254040058652618 },
       { latitude: 6.602691621523119, longitude: 2.2541138229844084 }
-    ];
-
-    // Navigation points configuration - specific coordinates for each panorama
-    const NAVIGATION_POINTS = [
-      // Frame 0 - first panorama
-      {
-        frames: {
-          forward: { index: 1, position: { x: 0, y: 0.01, z: -5 } },
-          backward: null // No backward for first panorama
-        }
-      },
-      // Frame 1
-      {
-        frames: {
-          forward: { index: 2, position: { x: 0, y: 0.01, z: -5 } },
-          backward: { index: 0, position: { x: 0, y: 0.01, z: 5 } }
-        }
-      },
-      // Frame 2
-      {
-        frames: {
-          forward: { index: 3, position: { x: 0, y: 0.01, z: -5 } },
-          backward: { index: 1, position: { x: 0, y: 0.01, z: 5 } }
-        }
-      },
-      // Frame 3
-      {
-        frames: {
-          forward: { index: 4, position: { x: 0, y: 0.01, z: -5 } },
-          backward: { index: 2, position: { x: 0, y: 0.01, z: 5 } }
-        }
-      },
-      // Frame 4
-      {
-        frames: {
-          forward: { index: 5, position: { x: 0, y: 0.01, z: -5 } },
-          backward: { index: 3, position: { x: 0, y: 0.01, z: 5 } }
-        }
-      },
-      // Frame 5
-      {
-        frames: {
-          forward: { index: 6, position: { x: 0, y: 0.01, z: -5 } },
-          backward: { index: 4, position: { x: 0, y: 0.01, z: 5 } }
-        }
-      },
-      // Frame 6
-      {
-        frames: {
-          forward: { index: 7, position: { x: 0, y: 0.01, z: -5 } },
-          backward: { index: 5, position: { x: 0, y: 0.01, z: 5 } }
-        }
-      },
-      // Frame 7
-      {
-        frames: {
-          forward: { index: 8, position: { x: 0, y: 0.01, z: -5 } },
-          backward: { index: 6, position: { x: 0, y: 0.01, z: 5 } }
-        }
-      },
-      // Frame 8
-      {
-        frames: {
-          forward: { index: 9, position: { x: 0, y: 0.01, z: -5 } },
-          backward: { index: 7, position: { x: 0, y: 0.01, z: 5 } }
-        }
-      },
-      // Frame 9
-      {
-        frames: {
-          forward: { index: 10, position: { x: 0, y: 0.01, z: -5 } },
-          backward: { index: 8, position: { x: 0, y: 0.01, z: 5 } }
-        }
-      },
-      // Frame 10
-      {
-        frames: {
-          forward: { index: 11, position: { x: 0, y: 0.01, z: -5 } },
-          backward: { index: 9, position: { x: 0, y: 0.01, z: 5 } }
-        }
-      },
-      // Frame 11
-      {
-        frames: {
-          forward: { index: 12, position: { x: 0, y: 0.01, z: -5 } },
-          backward: { index: 10, position: { x: 0, y: 0.01, z: 5 } }
-        }
-      },
-      // Frame 12
-      {
-        frames: {
-          forward: { index: 13, position: { x: 0, y: 0.01, z: -5 } },
-          backward: { index: 11, position: { x: 0, y: 0.01, z: 5 } }
-        }
-      },
-      // Frame 13
-      {
-        frames: {
-          forward: { index: 14, position: { x: 0, y: 0.01, z: -5 } },
-          backward: { index: 12, position: { x: 0, y: 0.01, z: 5 } }
-        }
-      },
-      // Frame 14
-      {
-        frames: {
-          forward: { index: 15, position: { x: 0, y: 0.01, z: -5 } },
-          backward: { index: 13, position: { x: 0, y: 0.01, z: 5 } }
-        }
-      },
-      // Frame 15
-      {
-        frames: {
-          forward: { index: 16, position: { x: 0, y: 0.01, z: -5 } },
-          backward: { index: 14, position: { x: 0, y: 0.01, z: 5 } }
-        }
-      },
-      // Frame 16
-      {
-        frames: {
-          forward: { index: 17, position: { x: 0, y: 0.01, z: -5 } },
-          backward: { index: 15, position: { x: 0, y: 0.01, z: 5 } }
-        }
-      },
-      // Frame 17
-      {
-        frames: {
-          forward: { index: 18, position: { x: 0, y: 0.01, z: -5 } },
-          backward: { index: 16, position: { x: 0, y: 0.01, z: 5 } }
-        }
-      },
-      // Frame 18
-      {
-        frames: {
-          forward: { index: 19, position: { x: 0, y: 0.01, z: -5 } },
-          backward: { index: 17, position: { x: 0, y: 0.01, z: 5 } }
-        }
-      },
-      // Frame 19 - last panorama
-      {
-        frames: {
-          forward: null, // No forward for last panorama
-          backward: { index: 18, position: { x: 0, y: 0.01, z: 5 } }
-        }
-      }
     ];
     
     // Debug mode
@@ -955,8 +813,8 @@
         // Continue without controller models
       }
       
-      // Create path-aware navigation arrows
-      createPathAwareNavigationArrows();
+      // Create fixed ground-based navigation arrows
+      createFixedNavigationArrows();
       
       // Add line for controller pointing ray
       const geometry = new THREE.BufferGeometry().setFromPoints([
@@ -993,9 +851,9 @@
       });
     }
 
-    // Create path-aware navigation arrows for VR
-    function createPathAwareNavigationArrows() {
-      log('Creating path-aware navigation arrows');
+    // Create fixed ground-based navigation arrows for VR
+    function createFixedNavigationArrows() {
+      log('Creating fixed ground-based navigation arrows');
       
       // === FORWARD ARROW ===
       forwardNavigator = new THREE.Group();
@@ -1003,12 +861,12 @@
       forwardNavigator.userData.isNavigationArrow = true;
       forwardNavigator.userData.direction = 'forward';
       
-      // Create arrow shape on ground
+      // Create arrow shape on ground that resembles Google Street View arrow
       const forwardArrowShape = new THREE.Shape();
-      // Draw a chevron matching Google Street View style
+      // Draw a chevron pointing forward (north)
       forwardArrowShape.moveTo(0, -0.25);  // top point
       forwardArrowShape.lineTo(0.2, 0.15); // right point
-      forwardArrowShape.lineTo(0, 0.05);   // middle indent
+      forwardArrowShape.lineTo(0, 0.05);  // middle bottom indent
       forwardArrowShape.lineTo(-0.2, 0.15); // left point
       forwardArrowShape.lineTo(0, -0.25);  // back to top
       
@@ -1034,12 +892,12 @@
       backwardNavigator.userData.isNavigationArrow = true;
       backwardNavigator.userData.direction = 'backward';
       
-      // Create arrow shape on ground
+      // Create arrow shape on ground that resembles Google Street View arrow
       const backwardArrowShape = new THREE.Shape();
-      // Draw a chevron pointing backward
+      // Draw a chevron pointing backward (south)
       backwardArrowShape.moveTo(0, 0.25);  // bottom point
       backwardArrowShape.lineTo(0.2, -0.15); // right point
-      backwardArrowShape.lineTo(0, -0.05);   // middle indent
+      backwardArrowShape.lineTo(0, -0.05);   // middle top indent
       backwardArrowShape.lineTo(-0.2, -0.15); // left point
       backwardArrowShape.lineTo(0, 0.25);  // back to bottom
       
@@ -1066,94 +924,24 @@
       scene.add(forwardNavigator);
       scene.add(backwardNavigator);
       
-      log('Path-aware navigation arrows created');
-    }
-
-    // Position path-aware arrows for the current panorama
-    function positionPathAwareArrows() {
-      if (!isVRMode || !forwardNavigator || !backwardNavigator) return;
-      
-      const navPoints = NAVIGATION_POINTS[currentPhotoIndex].frames;
-      
-      // Get camera position and direction (just for initial orientation - arrows will stay fixed)
-      const cameraPosition = new THREE.Vector3();
-      camera.getWorldPosition(cameraPosition);
-      
-      const cameraDirection = new THREE.Vector3(0, 0, -1);
-      cameraDirection.applyQuaternion(camera.quaternion);
-      
-      // Project direction onto xz-plane (ground)
-      const groundDirection = new THREE.Vector3(cameraDirection.x, 0, cameraDirection.z).normalize();
-      
-      // Set forward arrow visibility and position
-      if (navPoints.forward) {
-        forwardNavigator.visible = true;
-        
-        // Calculate path direction between current and next panorama
-        const currentLoc = PANORAMA_LOCATIONS[currentPhotoIndex];
-        const nextLoc = PANORAMA_LOCATIONS[navPoints.forward.index];
-        
-        // Place arrow on the ground at specified position
-        const forwardPos = new THREE.Vector3();
-        forwardPos.copy(cameraPosition);
-        forwardPos.y = navPoints.forward.position.y;
-        
-        // Position relative to camera, but in the direction of the path
-        const pathDirection = calculatePathDirection(currentLoc, nextLoc);
-        forwardPos.x += navPoints.forward.position.x;
-        forwardPos.z += navPoints.forward.position.z * Math.cos(pathDirection);
-        
-        // Adjust for path angle
-        forwardNavigator.position.copy(forwardPos);
-        forwardNavigator.rotation.y = pathDirection;
-      } else {
-        forwardNavigator.visible = false;
-      }
-      
-      // Set backward arrow visibility and position
-      if (navPoints.backward) {
-        backwardNavigator.visible = true;
-        
-        // Calculate path direction between current and previous panorama
-        const currentLoc = PANORAMA_LOCATIONS[currentPhotoIndex];
-        const prevLoc = PANORAMA_LOCATIONS[navPoints.backward.index];
-        
-        // Place arrow on the ground at specified position
-        const backwardPos = new THREE.Vector3();
-        backwardPos.copy(cameraPosition);
-        backwardPos.y = navPoints.backward.position.y;
-        
-        // Position relative to camera, but in the direction of the path
-        const pathDirection = calculatePathDirection(currentLoc, prevLoc);
-        backwardPos.x += navPoints.backward.position.x;
-        backwardPos.z += navPoints.backward.position.z * Math.cos(pathDirection);
-        
-        // Adjust for path angle
-        backwardNavigator.position.copy(backwardPos);
-        backwardNavigator.rotation.y = pathDirection;
-      } else {
-        backwardNavigator.visible = false;
-      }
-      
-      log('Navigation arrows positioned according to path data');
-    }
-    
-    // Calculate direction angle between two panorama locations
-    function calculatePathDirection(loc1, loc2) {
-      // Calculate angle based on GPS coordinates
-      return Math.atan2(
-        loc2.longitude - loc1.longitude,
-        loc2.latitude - loc1.latitude
-      );
+      log('Fixed ground-based navigation arrows created');
     }
 
     // Show/hide VR navigation arrows
     function showVRNavigationArrows() {
-      log('Showing VR navigation arrows');
+      log('Showing VR navigation ground arrows');
       
       if (forwardNavigator && backwardNavigator) {
-        // Position arrows according to current panorama configuration
-        positionPathAwareArrows();
+        // Only show forward arrow if not at the last panorama
+        const images = USE_PLACEHOLDERS ? PLACEHOLDER_IMAGES : PANORAMA_IMAGES;
+        forwardNavigator.visible = currentPhotoIndex < images.length - 1;
+        backwardNavigator.visible = currentPhotoIndex > 0;
+        
+        // Place the arrows at fixed positions in front of the user
+        // This is called only once when entering VR
+        positionFixedNavigationArrows();
+        
+        log('Arrow visibility updated: forward=' + forwardNavigator.visible + ', backward=' + backwardNavigator.visible);
       } else {
         error('Cannot show navigation arrows - they are not initialized');
       }
@@ -1164,6 +952,53 @@
         forwardNavigator.visible = false;
         backwardNavigator.visible = false;
       }
+    }
+    
+    // Position navigation arrows at fixed positions 5 meters in front of the initial user position
+    function positionFixedNavigationArrows() {
+      if (!isVRMode || !forwardNavigator || !backwardNavigator) return;
+      
+      // Get initial camera forward direction (where user is facing when entering VR)
+      const cameraPosition = new THREE.Vector3();
+      camera.getWorldPosition(cameraPosition);
+      
+      const cameraDirection = new THREE.Vector3(0, 0, -1);
+      cameraDirection.applyQuaternion(camera.quaternion);
+      
+      // Project direction onto xz-plane (ground)
+      const groundDirection = new THREE.Vector3(cameraDirection.x, 0, cameraDirection.z).normalize();
+      
+      // Set fixed distance from user
+      const distanceInFront = 5; // 5 meters in front as requested
+      
+      // Calculate center position 5 meters in front on the ground
+      const centerPosition = new THREE.Vector3();
+      centerPosition.copy(cameraPosition);
+      centerPosition.y = 0.01; // Just above ground level
+      centerPosition.addScaledVector(groundDirection, distanceInFront);
+      
+      // Place arrows side by side with a small gap between them
+      const arrowGap = 0.4; // 40cm between arrows
+      
+      // Calculate positions for arrows (one to left, one to right of center)
+      const forwardPosition = new THREE.Vector3().copy(centerPosition);
+      forwardPosition.x += arrowGap / 2; // Right side
+      
+      const backwardPosition = new THREE.Vector3().copy(centerPosition);
+      backwardPosition.x -= arrowGap / 2; // Left side
+      
+      // Update positions
+      forwardNavigator.position.copy(forwardPosition);
+      backwardNavigator.position.copy(backwardPosition);
+      
+      // Calculate the angle of the path direction in the xz plane
+      const pathAngle = Math.atan2(groundDirection.x, groundDirection.z);
+      
+      // Set arrow rotations to face in the direction of travel (both along the path)
+      forwardNavigator.rotation.set(0, pathAngle, 0);
+      backwardNavigator.rotation.set(0, pathAngle, 0);
+      
+      log('Fixed navigation arrows positioned at distance: ' + distanceInFront + 'm');
     }
 
     // Handle VR controller select events
@@ -1181,7 +1016,7 @@
       intersected = null;
     }
 
-    // Updated controller intersection handler
+    // Updated controller intersection handler for fixed ground arrows
     function handleControllerIntersection(controller) {
       if (!isVRMode || navigationCooldown) return;
       
@@ -1248,7 +1083,7 @@
       renderer.setSize(window.innerWidth, window.innerHeight);
     }
 
-    // Check for controller hover to highlight arrows
+    // Check for controller hover to highlight ground arrows
     function checkControllerHover(controller) {
       if (!isVRMode) return;
       
@@ -1311,6 +1146,7 @@
       }
       
       // In VR, check for controller intersections for highlighting arrows
+      // But don't update the arrow positions - they stay fixed
       if (isVRMode) {
         if (controller1 && !navigationCooldown) {
           checkControllerHover(controller1);
@@ -1371,9 +1207,12 @@
             // Update thumbnails to show current active panorama
             updateActiveThumbnail(index);
             
-            // Update VR navigation arrows if in VR mode
+            // Update VR navigation arrows visibility
             if (isVRMode) {
-              positionPathAwareArrows();
+              // Update arrow visibility without changing positions
+              const images = USE_PLACEHOLDERS ? PLACEHOLDER_IMAGES : PANORAMA_IMAGES;
+              forwardNavigator.visible = currentPhotoIndex < images.length - 1;
+              backwardNavigator.visible = currentPhotoIndex > 0;
             }
           },
           
