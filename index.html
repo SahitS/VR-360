@@ -1011,7 +1011,7 @@
       }
     }
     
-    // MODIFIED: Position navigation arrows using the first point reference
+   
     function positionFixedNavigationArrows() {
       if (!isVRMode || !forwardNavigator || !backwardNavigator) return;
       
@@ -1025,9 +1025,9 @@
       camera.getWorldPosition(cameraPosition);
       
       // Set fixed distance from user
-      const distanceInFront = 5; // 5 meters in front
+      const distanceInFront = 4; // 4 meters in front
       
-      // Calculate center position 5 meters in front on the ground, using initial camera reference
+      // Calculate center position in front on the ground, using initial camera reference
       const centerPosition = new THREE.Vector3();
       centerPosition.copy(cameraPosition);
       centerPosition.y = 0.01; // Just above ground level
@@ -1052,12 +1052,12 @@
       forwardNavigator.position.copy(forwardPosition);
       backwardNavigator.position.copy(backwardPosition);
       
-      // Calculate the angle based on initial camera direction for consistent orientation
-      const pathAngle = Math.atan2(initialCameraDirection.x, initialCameraDirection.z);
+      // Set fixed rotations - no need to calculate based on camera direction
+      // Forward arrow points in positive Z direction (fixed forward)
+      forwardNavigator.rotation.set(0, 0, 0);
       
-      // Set arrow rotations to face in the direction of travel (both along the path)
-      forwardNavigator.rotation.set(0, pathAngle, 0);
-      backwardNavigator.rotation.set(0, pathAngle, 0);
+      // Backward arrow points in negative Z direction (fixed backward)
+      backwardNavigator.rotation.set(0, Math.PI, 0);
       
       log(`Positioned arrows with absolute offsets using first reference point. Panorama ${currentPhotoIndex}: forward(${forwardX}, ${forwardY}), backward(${backwardX}, ${backwardY})`);
     }
