@@ -912,8 +912,9 @@
       });
       
       const forwardArrow = new THREE.Mesh(forwardArrowGeometry, forwardArrowMaterial);
+      forwardArrow.scale.set(2, 2, 2);
       // Elevate slightly above ground to prevent z-fighting
-      forwardArrow.position.y = 0.01;
+      //forwardArrow.position.y = 0.01;
       forwardNavigator.add(forwardArrow);
       
       // === BACKWARD ARROW ===
@@ -942,8 +943,9 @@
       });
       
       const backwardArrow = new THREE.Mesh(backwardArrowGeometry, backwardArrowMaterial);
+      backwardArrow.scale.set(2, 2, 2);
       // Elevate slightly above ground to prevent z-fighting
-      backwardArrow.position.y = 0.01;
+      //backwardArrow.position.y = 0.01;
       backwardNavigator.add(backwardArrow);
       
       // Add to scene but hide initially
