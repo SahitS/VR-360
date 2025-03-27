@@ -419,9 +419,9 @@
       [4, 0, 2, 0],       // Panorama 2
       [5, 0, 3, 0],       // Panorama 3
       [6, 0, 4, 0],       // Panorama 4
-      [6.5, 0, 4.5, 0],       // Panorama 5
+      [6.5, 0, 4.5, 0],   // Panorama 5
       [6, 0, 4, 0],       // Panorama 6
-      [6.75, 0, 4.75, 0],       // Panorama 7
+      [6.75, 0, 4.75, 0], // Panorama 7
       [7, 0, 5, 0],       // Panorama 8
       [8, 0, 6, 0],       // Panorama 9
       [7, 0, 5, 0],       // Panorama 10
@@ -811,8 +811,8 @@
       loadPanorama(currentPhotoIndex);
     }
 
-    // Setup VR components
-    function setupVRComponents() {
+      // Setup VR components
+      function setupVRComponents() {
       // Create a raycaster for controller interaction
       raycaster = new THREE.Raycaster();
       
@@ -967,9 +967,7 @@
         forwardNavigator.visible = currentPhotoIndex < images.length - 1;
         backwardNavigator.visible = currentPhotoIndex > 0;
         
-        // Place the arrows at fixed positions in front of the user
-        // This is called only once when entering VR
-        // MODIFIED: We'll store initial camera direction for consistent arrow placement
+        // Capture initial camera reference for consistent arrow placement
         captureInitialCameraReference();
         positionFixedNavigationArrows();
         
@@ -986,7 +984,7 @@
       }
     }
     
-    // MODIFIED: Capture initial camera reference for consistent arrow placement
+    // Capture initial camera reference for consistent arrow placement
     function captureInitialCameraReference() {
       // This is called when first entering VR to capture the initial reference vectors
       if (!initialCameraDirection) {
@@ -1011,7 +1009,7 @@
       }
     }
     
-   
+    // MODIFIED: Fixed positioning and rotation of navigation arrows
     function positionFixedNavigationArrows() {
       if (!isVRMode || !forwardNavigator || !backwardNavigator) return;
       
@@ -1052,12 +1050,23 @@
       forwardNavigator.position.copy(forwardPosition);
       backwardNavigator.position.copy(backwardPosition);
       
-      // Set fixed rotations - no need to calculate based on camera direction
-      // Forward arrow points in positive Z direction (fixed forward)
-      forwardNavigator.rotation.set(0, 0, 0);
+      // FIX: Set correct fixed rotations for arrows
+      // We'll use the initial camera direction as our reference, but ensure arrows point in correct directions
       
-      // Backward arrow points in negative Z direction (fixed backward)
-      backwardNavigator.rotation.set(0, Math.PI, 0);
+      // Create a reference direction for the north/forward direction
+      const northDir = new THREE.Vector3(0, 0, -1); // Forward in Three.js is -Z by default
+      
+      // Forward arrow should point forward
+      forwardNavigator.lookAt(forwardPosition.clone().add(northDir));
+      // Override Y rotation only - keep arrow flat on ground
+      forwardNavigator.rotation.x = -Math.PI/2; // Flat on ground
+      forwardNavigator.rotation.z = 0;          // No roll
+      
+      // Backward arrow should point backward
+      backwardNavigator.lookAt(backwardPosition.clone().add(northDir.clone().negate()));
+      // Override Y rotation only - keep arrow flat on ground
+      backwardNavigator.rotation.x = -Math.PI/2; // Flat on ground
+      backwardNavigator.rotation.z = 0;          // No roll
       
       log(`Positioned arrows with absolute offsets using first reference point. Panorama ${currentPhotoIndex}: forward(${forwardX}, ${forwardY}), backward(${backwardX}, ${backwardY})`);
     }
@@ -1275,7 +1284,7 @@
               forwardNavigator.visible = currentPhotoIndex < images.length - 1;
               backwardNavigator.visible = currentPhotoIndex > 0;
               
-              // MODIFIED: Use the same absolute positioning based on initial reference
+              // MODIFIED: Update positions with fixed rotation
               positionFixedNavigationArrows();
             }
           },
