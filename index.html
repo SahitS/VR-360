@@ -417,7 +417,7 @@
       // For each panorama, define custom offsets for both arrows
       // [forwardX, forwardY, backwardX, backwardY]
       [5, 0, -3, 0],       // Panorama 0
-      [4, 0, -2, 0],       // Panorama 1
+      [4, 0, 2, 0],       // Panorama 1
       [0, 0, -2, 0],       // Panorama 2
       [1, 0, -2, 0],       // Panorama 3
       [1, 0, -2, 0],       // Panorama 4
@@ -996,7 +996,7 @@
       const groundDirection = new THREE.Vector3(cameraDirection.x, 0, cameraDirection.z).normalize();
       
       // Set fixed distance from user
-      const distanceInFront = 8; // 5 meters in front as requested
+      const distanceInFront = 5; // 5 meters in front as requested
       
       // Calculate center position 5 meters in front on the ground
       const centerPosition = new THREE.Vector3();
