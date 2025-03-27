@@ -913,7 +913,6 @@
       
       const forwardArrow = new THREE.Mesh(forwardArrowGeometry, forwardArrowMaterial);
       // Elevate slightly above ground to prevent z-fighting
-      forwardArrow.scale.set(2, 2, 2);
       forwardArrow.position.y = 0.01;
       forwardNavigator.add(forwardArrow);
       
@@ -944,7 +943,6 @@
       });
       
       const backwardArrow = new THREE.Mesh(backwardArrowGeometry, backwardArrowMaterial);
-      backwardArrow.scale.set(2, 2, 2);
       // Elevate slightly above ground to prevent z-fighting
       backwardArrow.position.y = 0.01;
       backwardNavigator.add(backwardArrow);
