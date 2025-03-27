@@ -897,7 +897,7 @@
       forwardArrowShape.moveTo(0, -0.25);  // top point
       forwardArrowShape.lineTo(0.2, 0.15); // right point
       forwardArrowShape.lineTo(0, 0.05);  // middle bottom indent
-      forwardArrowShape.lineTo(-0.2, 0.15); // left point
+      forwardArrowShape.lineTo(0.2, 0.15); // left point
       forwardArrowShape.lineTo(0, -0.25);  // back to top
       
       const forwardArrowGeometry = new THREE.ShapeGeometry(forwardArrowShape);
@@ -933,7 +933,7 @@
       
       const backwardArrowGeometry = new THREE.ShapeGeometry(backwardArrowShape);
       // Rotate to lay flat on ground
-      backwardArrowGeometry.rotateX(-Math.PI / 2);
+      //backwardArrowGeometry.rotateX(-Math.PI / 2);
       
       const backwardArrowMaterial = new THREE.MeshBasicMaterial({ 
         color: 0xFFFFFF,
