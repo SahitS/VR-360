@@ -812,8 +812,8 @@
         // Continue without controller models
       }
       
-      // Create ground-based navigation arrows
-      createNavigationArrows();
+      // Create fixed ground-based navigation arrows
+      createFixedNavigationArrows();
       
       // Add line for controller pointing ray
       const geometry = new THREE.BufferGeometry().setFromPoints([
@@ -850,9 +850,9 @@
       });
     }
 
-    // Create ground-based navigation arrows for VR
-    function createNavigationArrows() {
-      log('Creating ground-based navigation arrows');
+    // Create fixed ground-based navigation arrows for VR
+    function createFixedNavigationArrows() {
+      log('Creating fixed ground-based navigation arrows');
       
       // === FORWARD ARROW ===
       forwardNavigator = new THREE.Group();
@@ -860,24 +860,23 @@
       forwardNavigator.userData.isNavigationArrow = true;
       forwardNavigator.userData.direction = 'forward';
       
-      // Create arrow shape on ground - white chevron arrow pointing forward
+      // Create arrow shape on ground that resembles Google Street View arrow
       const forwardArrowShape = new THREE.Shape();
-      // Starting from bottom center
-      forwardArrowShape.moveTo(0, -0.4);
-      // Right edge to top point
-      forwardArrowShape.lineTo(0.4, 0.4);
-      // Left edge back to start
-      forwardArrowShape.lineTo(-0.4, 0.4);
-      forwardArrowShape.lineTo(0, -0.4);
+      // Draw a chevron pointing forward (north)
+      forwardArrowShape.moveTo(0, 0.25);  // top point
+      forwardArrowShape.lineTo(0.2, -0.15); // right point
+      forwardArrowShape.lineTo(0, -0.05);  // middle bottom indent
+      forwardArrowShape.lineTo(-0.2, -0.15); // left point
+      forwardArrowShape.lineTo(0, 0.25);  // back to top
       
       const forwardArrowGeometry = new THREE.ShapeGeometry(forwardArrowShape);
-      // Rotate to lay flat on ground with point facing forward
+      // Rotate to lay flat on ground
       forwardArrowGeometry.rotateX(-Math.PI / 2);
       
       const forwardArrowMaterial = new THREE.MeshBasicMaterial({ 
         color: 0xFFFFFF,
         transparent: true,
-        opacity: 0.8,
+        opacity: 0.9,
         side: THREE.DoubleSide
       });
       
@@ -886,44 +885,29 @@
       forwardArrow.position.y = 0.01;
       forwardNavigator.add(forwardArrow);
       
-      // Add outline/border to make it more visible
-      const forwardArrowOutlineGeometry = new THREE.EdgesGeometry(forwardArrowGeometry);
-      const forwardArrowOutlineMaterial = new THREE.LineBasicMaterial({ 
-        color: 0x000000,
-        linewidth: 2
-      });
-      const forwardArrowOutline = new THREE.LineSegments(
-        forwardArrowOutlineGeometry, 
-        forwardArrowOutlineMaterial
-      );
-      // Position slightly above the arrow to prevent z-fighting
-      forwardArrowOutline.position.y = 0.011;
-      forwardNavigator.add(forwardArrowOutline);
-      
       // === BACKWARD ARROW ===
       backwardNavigator = new THREE.Group();
       backwardNavigator.name = 'backwardNavigator';
       backwardNavigator.userData.isNavigationArrow = true;
       backwardNavigator.userData.direction = 'backward';
       
-      // Create arrow shape on ground - white chevron arrow pointing backward
+      // Create arrow shape on ground that resembles Google Street View arrow
       const backwardArrowShape = new THREE.Shape();
-      // Starting from top center
-      backwardArrowShape.moveTo(0, 0.4);
-      // Right edge to bottom point
-      backwardArrowShape.lineTo(0.4, -0.4);
-      // Left edge back to start
-      backwardArrowShape.lineTo(-0.4, -0.4);
-      backwardArrowShape.lineTo(0, 0.4);
+      // Draw a chevron pointing backward (south)
+      backwardArrowShape.moveTo(0, -0.25);  // bottom point
+      backwardArrowShape.lineTo(0.2, 0.15); // right point
+      backwardArrowShape.lineTo(0, 0.05);   // middle top indent
+      backwardArrowShape.lineTo(-0.2, 0.15); // left point
+      backwardArrowShape.lineTo(0, -0.25);  // back to bottom
       
       const backwardArrowGeometry = new THREE.ShapeGeometry(backwardArrowShape);
-      // Rotate to lay flat on ground with point facing backward
+      // Rotate to lay flat on ground
       backwardArrowGeometry.rotateX(-Math.PI / 2);
       
       const backwardArrowMaterial = new THREE.MeshBasicMaterial({ 
         color: 0xFFFFFF,
         transparent: true,
-        opacity: 0.8,
+        opacity: 0.9,
         side: THREE.DoubleSide
       });
       
@@ -932,20 +916,6 @@
       backwardArrow.position.y = 0.01;
       backwardNavigator.add(backwardArrow);
       
-      // Add outline/border
-      const backwardArrowOutlineGeometry = new THREE.EdgesGeometry(backwardArrowGeometry);
-      const backwardArrowOutlineMaterial = new THREE.LineBasicMaterial({ 
-        color: 0x000000,
-        linewidth: 2
-      });
-      const backwardArrowOutline = new THREE.LineSegments(
-        backwardArrowOutlineGeometry, 
-        backwardArrowOutlineMaterial
-      );
-      // Position slightly above the arrow to prevent z-fighting
-      backwardArrowOutline.position.y = 0.011;
-      backwardNavigator.add(backwardArrowOutline);
-      
       // Add to scene but hide initially
       forwardNavigator.visible = false;
       backwardNavigator.visible = false;
@@ -953,7 +923,7 @@
       scene.add(forwardNavigator);
       scene.add(backwardNavigator);
       
-      log('Ground-based navigation arrows created');
+      log('Fixed ground-based navigation arrows created');
     }
 
     // Show/hide VR navigation arrows
@@ -966,8 +936,9 @@
         forwardNavigator.visible = currentPhotoIndex < images.length - 1;
         backwardNavigator.visible = currentPhotoIndex > 0;
         
-        // Update arrow positions
-        updateNavigationArrowPositions();
+        // Place the arrows at fixed positions in front of the user
+        // This is called only once when entering VR
+        positionFixedNavigationArrows();
         
         log('Arrow visibility updated: forward=' + forwardNavigator.visible + ', backward=' + backwardNavigator.visible);
       } else {
@@ -982,54 +953,51 @@
       }
     }
     
-    // Update navigation arrow positions - placing them on the ground in front of and behind the user
-    function updateNavigationArrowPositions() {
+    // Position navigation arrows at fixed positions 5 meters in front of the initial user position
+    function positionFixedNavigationArrows() {
       if (!isVRMode || !forwardNavigator || !backwardNavigator) return;
       
-      // Get camera position and forward direction
+      // Get initial camera forward direction (where user is facing when entering VR)
       const cameraPosition = new THREE.Vector3();
       camera.getWorldPosition(cameraPosition);
       
       const cameraDirection = new THREE.Vector3(0, 0, -1);
       cameraDirection.applyQuaternion(camera.quaternion);
       
-      // Project movement direction onto xz-plane (ignore y component for ground placement)
+      // Project direction onto xz-plane (ground)
       const groundDirection = new THREE.Vector3(cameraDirection.x, 0, cameraDirection.z).normalize();
       
-      // Place arrows on the ground in front and behind the user
-      const distanceInFront = 3; // 3 meters in front 
-      const distanceBehind = 2;  // 2 meters behind
+      // Set fixed distance from user
+      const distanceInFront = 5; // 5 meters in front as requested
       
-      // Calculate positions based on camera direction
-      const forwardPosition = new THREE.Vector3();
-      forwardPosition.copy(cameraPosition);
-      forwardPosition.y = 0.01; // Just above ground level
-      forwardPosition.addScaledVector(groundDirection, distanceInFront);
+      // Calculate center position 5 meters in front on the ground
+      const centerPosition = new THREE.Vector3();
+      centerPosition.copy(cameraPosition);
+      centerPosition.y = 0.01; // Just above ground level
+      centerPosition.addScaledVector(groundDirection, distanceInFront);
       
-      const backwardPosition = new THREE.Vector3();
-      backwardPosition.copy(cameraPosition);
-      backwardPosition.y = 0.01; // Just above ground level
-      backwardPosition.addScaledVector(groundDirection, -distanceBehind);
+      // Place arrows side by side with a small gap between them
+      const arrowGap = 0.4; // 40cm between arrows
+      
+      // Calculate positions for arrows (one to left, one to right of center)
+      const forwardPosition = new THREE.Vector3().copy(centerPosition);
+      forwardPosition.x += arrowGap / 2; // Right side
+      
+      const backwardPosition = new THREE.Vector3().copy(centerPosition);
+      backwardPosition.x -= arrowGap / 2; // Left side
       
       // Update positions
       forwardNavigator.position.copy(forwardPosition);
       backwardNavigator.position.copy(backwardPosition);
       
-      // Calculate rotation to face in the direction of travel
-      // Get the angle in the xz plane
-      const forwardAngle = Math.atan2(groundDirection.x, groundDirection.z);
-      const backwardAngle = Math.atan2(-groundDirection.x, -groundDirection.z);
+      // Calculate the angle of the path direction in the xz plane
+      const pathAngle = Math.atan2(groundDirection.x, groundDirection.z);
       
-      // Set arrow rotation to align with direction of travel
-      forwardNavigator.rotation.set(0, forwardAngle, 0);
-      backwardNavigator.rotation.set(0, backwardAngle, 0);
+      // Set arrow rotations to face in the direction of travel (both along the path)
+      forwardNavigator.rotation.set(0, pathAngle, 0);
+      backwardNavigator.rotation.set(0, pathAngle, 0);
       
-      // Add slight pulsing effect to make arrows more noticeable
-      const time = performance.now() * 0.001; // Convert to seconds
-      const pulseAmount = Math.sin(time * 2) * 0.1 + 0.9; // Pulse between 0.8 and 1.0 scale
-      
-      forwardNavigator.scale.set(pulseAmount, 1, pulseAmount);
-      backwardNavigator.scale.set(pulseAmount, 1, pulseAmount);
+      log('Fixed navigation arrows positioned at distance: ' + distanceInFront + 'm');
     }
 
     // Handle VR controller select events
@@ -1047,7 +1015,7 @@
       intersected = null;
     }
 
-    // Updated controller intersection handler for ground arrows
+    // Updated controller intersection handler for fixed ground arrows
     function handleControllerIntersection(controller) {
       if (!isVRMode || navigationCooldown) return;
       
@@ -1081,6 +1049,7 @@
           // Visual feedback - pulse the arrow
           const originalScale = targetObject.parent.scale.x;
           targetObject.parent.scale.set(1.5, 1, 1.5);
+          targetObject.material.opacity = 1.0;
           
           // Navigate based on direction
           if (targetObject.parent.userData.direction === 'forward') {
@@ -1095,6 +1064,9 @@
           setTimeout(() => {
             if (targetObject && targetObject.parent) {
               targetObject.parent.scale.set(originalScale, 1, originalScale);
+              if (targetObject.material) {
+                targetObject.material.opacity = 0.9;
+              }
             }
             navigationCooldown = false;
             log('Navigation cooldown ended');
@@ -1131,29 +1103,19 @@
       if (forwardNavigator) {
         forwardNavigator.children.forEach(child => {
           if (child.material) {
-            if (child instanceof THREE.Mesh) {
-              child.material.opacity = 0.8;
-            }
+            child.material.opacity = 0.9;
           }
         });
-        // Reset scale to base pulse amount
-        const time = performance.now() * 0.001;
-        const pulseAmount = Math.sin(time * 2) * 0.1 + 0.9;
-        forwardNavigator.scale.set(pulseAmount, 1, pulseAmount);
+        forwardNavigator.scale.set(1, 1, 1);
       }
       
       if (backwardNavigator) {
         backwardNavigator.children.forEach(child => {
           if (child.material) {
-            if (child instanceof THREE.Mesh) {
-              child.material.opacity = 0.8;
-            }
+            child.material.opacity = 0.9;
           }
         });
-        // Reset scale to base pulse amount
-        const time = performance.now() * 0.001;
-        const pulseAmount = Math.sin(time * 2) * 0.1 + 0.9;
-        backwardNavigator.scale.set(pulseAmount, 1, pulseAmount);
+        backwardNavigator.scale.set(1, 1, 1);
       }
       
       // Apply hover effect to intersected arrow
@@ -1166,13 +1128,9 @@
         
         if (targetObject && targetObject.parent.userData.isNavigationArrow) {
           // Hover effect - increase opacity and scale
-          targetObject.parent.children.forEach(child => {
-            if (child.material) {
-              if (child instanceof THREE.Mesh) {
-                child.material.opacity = 1.0;
-              }
-            }
-          });
+          if (targetObject.material) {
+            targetObject.material.opacity = 1.0;
+          }
           
           // Make arrow larger on hover
           targetObject.parent.scale.set(1.2, 1, 1.2);
@@ -1186,12 +1144,9 @@
         controls.update(); // Required for damping
       }
       
-      // In VR, update arrow positions to follow camera
+      // In VR, check for controller intersections for highlighting arrows
+      // But don't update the arrow positions - they stay fixed
       if (isVRMode) {
-        updateNavigationArrowPositions();
-        
-        // Check for controller intersections continuously
-        // This provides visual feedback but not navigation (until select is pressed)
         if (controller1 && !navigationCooldown) {
           checkControllerHover(controller1);
         }
@@ -1253,7 +1208,10 @@
             
             // Update VR navigation arrows visibility
             if (isVRMode) {
-              showVRNavigationArrows();
+              // Update arrow visibility without changing positions
+              const images = USE_PLACEHOLDERS ? PLACEHOLDER_IMAGES : PANORAMA_IMAGES;
+              forwardNavigator.visible = currentPhotoIndex < images.length - 1;
+              backwardNavigator.visible = currentPhotoIndex > 0;
             }
           },
           
